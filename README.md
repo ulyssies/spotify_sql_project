@@ -1,6 +1,8 @@
-# 🎧 Spotify SQL Tracker
+# 🎵 Spotify SQL Tracker
 
-Analyze your Spotify listening habits using Python, Spotipy, SQL, and Data Visualization. This project extracts your top tracks and artists using the Spotify Web API, stores the data in an SQLite database, and produces insightful charts and SQL-driven reports.
+Spotify SQL Tracker is a personal data project that connects to the Spotify Web API, collects your top tracks and recently played songs, and stores them in a SQL database. It then provides simplified visualizations and insights into your music history and listening preferences using Python and SQL.
+
+---
 
 ## 🧠 Project Purpose
 
@@ -98,4 +100,4 @@ SPOTIPY_REDIRECT_URI=http://127.0.0.1:8888/callback
 
 ## 📄 License
 
-This project is licensed under the MIT License.
+This project is for educational and personal use. Feel free to fork, contribute, or build upon it.
