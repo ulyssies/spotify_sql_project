@@ -1,6 +1,6 @@
-# 🎵 Spotify SQL Tracker
+# 🎵 Spotify Tracker
 
-Spotify SQL Tracker is a personal data project that connects to the Spotify Web API, collects your top tracks and recently played songs, and stores them in a SQL database. It then provides simplified visualizations and insights into your music history and listening preferences using Python and SQL.
+Spotify Tracker is a personal data project that connects to the Spotify Web API, collects your top tracks and recently played songs, and stores them in a SQL database. It then provides simplified visualizations and insights into your music history and listening preferences using Python and SQL.
 
 ---
 
