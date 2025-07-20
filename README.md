@@ -1,65 +1,58 @@
-# 🎵 Spotify SQL Tracker
+# 🎧 Spotify SQL Tracker
 
-Spotify SQL Tracker is a personal data project that connects to the Spotify Web API, collects your top tracks and recently played songs, and stores them in a SQL database. It then provides simplified visualizations and insights into your music history and listening preferences using Python and SQL.
+Analyze your Spotify listening habits using Python, Spotipy, SQL, and Data Visualization. This project extracts your top tracks and artists using the Spotify Web API, stores the data in an SQLite database, and produces insightful charts and SQL-driven reports.
 
----
+## 🧠 Project Purpose
 
-## 🧠 Why I Built This
-
-I wanted to create a clean and accessible way for users (including myself) to explore their **Spotify listening history** and **audio preferences** through visual data. By combining **APIs**, **SQL**, and **data visualization**, this project demonstrates how to:
-- Collect data from a real-world API (Spotify)
-- Store it properly in a relational database
-- Analyze patterns in listening habits
-- Present meaningful results in an easy-to-understand way
-
-This is a great example of using data engineering and analysis skills to produce insights that are **both personal and shareable**.
+I created this project to provide music lovers and data enthusiasts with a clean, interactive way to explore their Spotify listening history. It’s a portfolio piece that demonstrates API integration, SQL querying, and data visualization — all tied together in a simple, readable workflow.
 
 ---
 
-## 🛠️ Tech Stack
+## 🚀 Features
 
-- **Python 3.12**
-- **Spotipy** – Spotify API wrapper for Python
-- **SQLite** – Lightweight SQL database for storing tracks
-- **SQLAlchemy** – Database integration with Python
-- **Pandas** – Data wrangling and manipulation
-- **Matplotlib / Seaborn** – Graphs and visualizations
-- **dotenv** – For secure API key storage
+- Authenticates via Spotify OAuth
+- Fetches top tracks, artists, and audio features
+- Stores structured data in SQLite
+- Visualizes trends (e.g. genres, danceability, popularity)
+- Performs SQL analysis on stored data
 
 ---
 
-## 🚀 Setup Instructions
+## 🛠️ Setup Instructions
 
-1. **Clone the repository**
+1. **Clone this repository**
 ```bash
 git clone https://github.com/ulyssies/spotify_sql_project.git
 cd spotify_sql_project
 ```
 
-2. **Create a virtual environment**
+2. **Create your `.env` file** using the provided `.env.example`
+
+3. **Create and activate your virtual environment**
 ```bash
 python3 -m venv venv
 source venv/bin/activate
 ```
 
-3. **Install dependencies**
+4. **Install dependencies**
 ```bash
 pip install -r requirements.txt
 ```
 
-4. **Set up your `.env` file**
-Create a `.env` file in the project root and add:
-```
-SPOTIPY_CLIENT_ID=your_client_id
-SPOTIPY_CLIENT_SECRET=your_client_secret
-SPOTIPY_REDIRECT_URI=http://localhost:8888/callback
+5. **Run the extractor**
+```bash
+python extract_spotify.py
 ```
 
-5. **Run the pipeline**
+6. **Create the database**
 ```bash
-python extract_spotify.py   # Fetch top tracks from Spotify
-python load_data.py         # Save track data into SQLite
-python analyze.py           # Run queries & show visualizations
+python create_database.py
+```
+
+7. **Visualize or analyze your data**
+```bash
+python check_database.py
+python genres.py
 ```
 
 ---
@@ -68,28 +61,41 @@ python analyze.py           # Run queries & show visualizations
 
 ```
 spotify_sql_project/
-├── README.md              # Project overview and setup instructions
-├── requirements.txt       # Python dependencies
-├── extract_spotify.py     # Authenticates and fetches Spotify data
-├── create_database.py     # Creates SQLite schema and tables
-├── check_database.py      # Optional: script to inspect/verify DB contents
-├── genres.py              # Extracts or analyzes genre-related data
-├── spotify_data.db        # SQLite database with track data (auto-generated)
-├── .env                   # (User-created) Stores API keys — NOT committed to Git
-└── venv/                  # Virtual environment (excluded from version control)
+├── README.md
+├── .env.example
+├── requirements.txt
+├── extract_spotify.py
+├── create_database.py
+├── check_database.py
+├── genres.py
+├── spotify_data.db
+├── visuals/              # (Optional) Visual output folder
+└── venv/                 # Virtual environment (excluded from Git)
 ```
 
 ---
 
-## 👤 Author
+## 🔐 .env File
+
+This project uses environment variables for your Spotify credentials.  
+Use the provided `.env.example` to create your own `.env` file:
+
+```env
+SPOTIPY_CLIENT_ID=your_client_id_here
+SPOTIPY_CLIENT_SECRET=your_client_secret_here
+SPOTIPY_REDIRECT_URI=http://127.0.0.1:8888/callback
+```
+
+---
+
+## 🧑‍💻 Author
 
 **Ulyssies Adams**  
-🎓 B.S. in Computer Science, Georgia State University  
-💼 [LinkedIn](https://www.linkedin.com/in/ulyssiesadams/)  
-💻 [GitHub](https://github.com/ulyssies)  
+[GitHub](https://github.com/ulyssies) • 
+[LinkedIn](https://www.linkedin.com/in/ulyssiesadams/)
 
 ---
 
 ## 📄 License
 
-This project is for educational and personal use. Feel free to fork, contribute, or build upon it.
+This project is licensed under the MIT License.
