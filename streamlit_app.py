@@ -33,55 +33,31 @@ if st.session_state.sp is None:
         client_secret=SPOTIPY_CLIENT_SECRET,
         redirect_uri=SPOTIPY_REDIRECT_URI,
         scope="user-read-private user-top-read user-read-recently-played",
-        cache_path=None,  # Disables global token caching
+        cache_path=None,  # Do not reuse login between users
         show_dialog=True
     )
 
-    # Updated query param logic
+    # Use query_params from Streamlit
     query_params = st.query_params
     if "code" in query_params:
         try:
             code = query_params["code"][0]
-            token_info = auth_manager.get_access_token(code)
-            if token_info:
-                sp = spotipy.Spotify(auth=token_info["access_token"])
-                user = sp.current_user()
-                st.session_state.sp = sp
-                st.session_state.username = user.get("display_name", "Your")
-                st.query_params.clear()
-                st.rerun()
-            else:
-                st.error("Authorization failed. Please try again.")
-                st.stop()
+            token_info = auth_manager.get_access_token(code, as_dict=False)
+            sp = spotipy.Spotify(auth_manager=auth_manager)
+            user = sp.current_user()
+            st.session_state.sp = sp
+            st.session_state.username = user.get("display_name", "Your")
+            st.query_params.clear()  # remove ?code=... from URL
+            st.rerun()
         except Exception as e:
             st.error(f"Login failed: {e}")
             st.stop()
     else:
         auth_url = auth_manager.get_authorize_url()
-        st.markdown(
-            f"""
-            <a href="{auth_url}" target="_self">
-                <button style="
-                    background-color:#1DB954;
-                    border:none;
-                    color:white;
-                    padding:12px 24px;
-                    text-align:center;
-                    text-decoration:none;
-                    display:inline-block;
-                    font-size:16px;
-                    border-radius:25px;
-                    cursor:pointer;
-                    transition: background-color 0.3s;">
-                    🔐 Login with Spotify
-                </button>
-            </a>
-            """,
-            unsafe_allow_html=True
-        )
+        st.markdown(f"🔐 [Click here to login with Spotify]({auth_url})")
         st.stop()
 
-# Post-login
+# Post-login: welcome
 sp = st.session_state.sp
 username = st.session_state.username
 st.header(f"Welcome, {username}!")
