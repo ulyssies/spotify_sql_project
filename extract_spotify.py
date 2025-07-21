@@ -4,24 +4,26 @@ import sqlite3
 from dotenv import load_dotenv
 import os
 import time
+import streamlit as st
+
+load_dotenv()
+
+SPOTIPY_CLIENT_ID = os.getenv("SPOTIPY_CLIENT_ID") or st.secrets["spotify"]["SPOTIPY_CLIENT_ID"]
+SPOTIPY_CLIENT_SECRET = os.getenv("SPOTIPY_CLIENT_SECRET") or st.secrets["spotify"]["SPOTIPY_CLIENT_SECRET"]
+SPOTIPY_REDIRECT_URI = os.getenv("SPOTIPY_REDIRECT_URI") or st.secrets["spotify"]["SPOTIPY_REDIRECT_URI"]
 
 def extract_and_store_top_tracks():
-    load_dotenv()
-
     sp = spotipy.Spotify(auth_manager=SpotifyOAuth(
-        client_id=os.getenv("SPOTIPY_CLIENT_ID"),
-        client_secret=os.getenv("SPOTIPY_CLIENT_SECRET"),
-        redirect_uri=os.getenv("SPOTIPY_REDIRECT_URI"),
+        client_id=SPOTIPY_CLIENT_ID,
+        client_secret=SPOTIPY_CLIENT_SECRET,
+        redirect_uri=SPOTIPY_REDIRECT_URI,
         scope="user-top-read user-read-recently-played"
     ))
 
     conn = sqlite3.connect("spotify_data.db")
     cursor = conn.cursor()
 
-    # 🧨 Drop old table to avoid UNIQUE constraint issue
     cursor.execute("DROP TABLE IF EXISTS top_tracks")
-
-    # ✅ Recreate table with composite primary key
     cursor.execute('''
         CREATE TABLE top_tracks (
             track_id TEXT,
@@ -46,7 +48,6 @@ def extract_and_store_top_tracks():
         print(f"Fetching top tracks for {term}...")
         results = sp.current_user_top_tracks(limit=50, time_range=term)
         items = results.get('items', [])
-
         seen_ids = set()
         inserted = 0
 
@@ -68,7 +69,7 @@ def extract_and_store_top_tracks():
             inserted += 1
 
         if inserted < 25:
-            print(f"Only {inserted} top tracks found, filling with recent tracks...")
+            print("Filling with recent tracks...")
             recent = sp.current_user_recently_played(limit=50)
             for r in recent.get('items', []):
                 tid = r['track']['id']

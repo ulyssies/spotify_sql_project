@@ -14,11 +14,11 @@ venv/
 # SQLite database file
 spotify_data.db
 
-# Jupyter notebooks checkpoints (if any)
-.ipynb_checkpoints/
-
 # macOS or system files
 .DS_Store
 
-# Streamlit generated files
-.streamlit/
+# Streamlit secrets (only the secrets file)
+.streamlit/secrets.toml
+
+# Allow other Streamlit config files (optional)
+!.streamlit/config.toml

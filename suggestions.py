@@ -3,15 +3,21 @@ import sqlite3
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 from dotenv import load_dotenv
+import streamlit as st
 
 # Load environment variables
 load_dotenv()
 
+# Unified support: local + Streamlit Cloud
+SPOTIPY_CLIENT_ID = os.getenv("SPOTIPY_CLIENT_ID") or st.secrets["spotify"]["SPOTIPY_CLIENT_ID"]
+SPOTIPY_CLIENT_SECRET = os.getenv("SPOTIPY_CLIENT_SECRET") or st.secrets["spotify"]["SPOTIPY_CLIENT_SECRET"]
+SPOTIPY_REDIRECT_URI = os.getenv("SPOTIPY_REDIRECT_URI") or st.secrets["spotify"]["SPOTIPY_REDIRECT_URI"]
+
 # Initialize Spotify client
 sp = spotipy.Spotify(auth_manager=SpotifyOAuth(
-    client_id=os.getenv("SPOTIPY_CLIENT_ID"),
-    client_secret=os.getenv("SPOTIPY_CLIENT_SECRET"),
-    redirect_uri=os.getenv("SPOTIPY_REDIRECT_URI"),
+    client_id=SPOTIPY_CLIENT_ID,
+    client_secret=SPOTIPY_CLIENT_SECRET,
+    redirect_uri=SPOTIPY_REDIRECT_URI,
     scope="user-read-private user-top-read user-read-recently-played"
 ))
 
@@ -61,41 +67,16 @@ def get_song_suggestions(term="short_term"):
         print("❌ No valid seed tracks found.")
         return []
 
+    # Step 3: Get recommendations
     try:
         print("🎯 Using seed tracks:", seed_tracks)
         recs = sp.recommendations(seed_tracks=seed_tracks[:5], limit=5)
     except Exception as e:
         print(f"❌ Spotify API error (recommendations): {e}")
         print("🛠️ Falling back to manual track links...")
-        fallback = []
-        for tid in seed_tracks[:5]:
-            try:
-                track = sp.track(tid)
-                name = track['name']
-                artist = track['artists'][0]['name']
-                image_url = track['album']['images'][0]['url'] if track['album']['images'] else ""
-                preview = track.get('preview_url', '')
-                excerpt = f"🎵 **{name}** by *{artist}*. [Listen on Spotify 🔗](https://open.spotify.com/track/{tid})"
-                if preview:
-                    excerpt += f"\n🔊 [Preview ▶️]({preview})"
-                fallback.append({
-                    "track": name,
-                    "artist": artist,
-                    "excerpt": excerpt,
-                    "image": image_url,
-                    "preview": preview
-                })
-            except Exception as e:
-                print(f"❌ Error fetching fallback track info for {tid}: {e}")
-                fallback.append({
-                    "track": tid,
-                    "artist": "Unknown",
-                    "excerpt": f"[Listen on Spotify 🔗](https://open.spotify.com/track/{tid})",
-                    "image": "",
-                    "preview": ""
-                })
-        return fallback
+        return manual_suggestions(seed_tracks[:5])
 
+    # Step 4: Format recommendation results
     suggestions = []
     for track in recs['tracks']:
         name = track['name']
@@ -121,3 +102,33 @@ def get_song_suggestions(term="short_term"):
         })
 
     return suggestions
+
+def manual_suggestions(track_ids):
+    fallback = []
+    for tid in track_ids:
+        try:
+            track = sp.track(tid)
+            name = track['name']
+            artist = track['artists'][0]['name']
+            image_url = track['album']['images'][0]['url'] if track['album']['images'] else ""
+            preview = track.get('preview_url', '')
+            excerpt = f"🎵 **{name}** by *{artist}*. [Listen on Spotify 🔗](https://open.spotify.com/track/{tid})"
+            if preview:
+                excerpt += f"\n🔊 [Preview ▶️]({preview})"
+            fallback.append({
+                "track": name,
+                "artist": artist,
+                "excerpt": excerpt,
+                "image": image_url,
+                "preview": preview
+            })
+        except Exception as e:
+            print(f"❌ Error fetching fallback track info for {tid}: {e}")
+            fallback.append({
+                "track": tid,
+                "artist": "Unknown",
+                "excerpt": f"[Listen on Spotify 🔗](https://open.spotify.com/track/{tid})",
+                "image": "",
+                "preview": ""
+            })
+    return fallback

@@ -10,30 +10,31 @@ from spotipy.oauth2 import SpotifyOAuth
 from dotenv import load_dotenv
 import os
 
-# Load .env variables
+# Load local .env if exists
 load_dotenv()
+
+# Fallback to Streamlit secrets if env vars not set
+SPOTIPY_CLIENT_ID = os.getenv("SPOTIPY_CLIENT_ID") or st.secrets["spotify"]["SPOTIPY_CLIENT_ID"]
+SPOTIPY_CLIENT_SECRET = os.getenv("SPOTIPY_CLIENT_SECRET") or st.secrets["spotify"]["SPOTIPY_CLIENT_SECRET"]
+SPOTIPY_REDIRECT_URI = os.getenv("SPOTIPY_REDIRECT_URI") or st.secrets["spotify"]["SPOTIPY_REDIRECT_URI"]
 
 st.set_page_config(page_title="Spotify Visualizer", layout="centered")
 
-# Get Spotify username
 sp = spotipy.Spotify(auth_manager=SpotifyOAuth(
-    client_id=os.getenv("SPOTIPY_CLIENT_ID"),
-    client_secret=os.getenv("SPOTIPY_CLIENT_SECRET"),
-    redirect_uri=os.getenv("SPOTIPY_REDIRECT_URI"),
+    client_id=SPOTIPY_CLIENT_ID,
+    client_secret=SPOTIPY_CLIENT_SECRET,
+    redirect_uri=SPOTIPY_REDIRECT_URI,
     scope="user-read-private"
 ))
 username = sp.current_user().get("display_name", "Your")
 
-# Personalized title
 st.title(f"{username}'s 🎷 Spotify Listening Stats")
 
-# Button to fetch data
 if st.button("🔄 Load My Spotify Data"):
     with st.spinner("Fetching your Spotify data..."):
         extract_and_store_top_tracks()
     st.success("✅ Data loaded! Refresh the chart below.")
 
-# Map human-readable labels to Spotify terms
 term_options = {
     "Last 4 Weeks": "short_term",
     "Last 6 Months": "medium_term",
@@ -42,16 +43,13 @@ term_options = {
 term_label = st.selectbox("Top Tracks for:", list(term_options.keys()))
 term = term_options[term_label]
 
-# Connect to DB and load top tracks
 conn = sqlite3.connect("spotify_data.db")
 df = pd.read_sql_query(
     "SELECT track_name, artist_name, genre FROM top_tracks WHERE term = ? ORDER BY play_count ASC",
-    conn,
-    params=(term,)
+    conn, params=(term,)
 )
 conn.close()
 
-# Display tabs
 tab1, tab2 = st.tabs(["🎵 Top Tracks", "📊 Genre Chart"])
 
 with tab1:
@@ -64,7 +62,6 @@ with tab1:
     })
     st.dataframe(df_display, use_container_width=True, hide_index=True)
 
-    # Suggestions Section
     st.markdown("---")
     st.subheader("💡 Suggested Songs Based on Your Top Tracks")
     suggestions = get_song_suggestions(term)
@@ -75,7 +72,6 @@ with tab1:
             artist = s["artist"]
             excerpt = s["excerpt"]
             image_url = s.get("image", "")
-
             with st.container():
                 col1, col2 = st.columns([1, 5])
                 with col1:
@@ -96,12 +92,10 @@ with tab2:
         if g and g != "Unknown":
             genres += [x.strip() for x in g.split(',') if x.strip()]
     genre_counts = Counter(genres)
-    top_n = 6
-    top_genres = dict(genre_counts.most_common(top_n))
-    other = sum(count for genre, count in genre_counts.items() if genre not in top_genres)
+    top_genres = dict(genre_counts.most_common(6))
+    other = sum(c for g, c in genre_counts.items() if g not in top_genres)
     if other:
         top_genres["Other"] = other
-
     if top_genres:
         fig, ax = plt.subplots()
         ax.pie(
