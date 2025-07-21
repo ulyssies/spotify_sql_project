@@ -169,4 +169,3 @@ with tab2:
         st.pyplot(fig)
     else:
         st.info("No genre data available for this term.")
-`` ​:contentReference[oaicite:0]{index=0}​
