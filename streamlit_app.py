@@ -13,81 +13,61 @@ import os
 # Load environment variables
 load_dotenv()
 
-# Credentials (env for local, secrets for Streamlit Cloud)
+# Credentials (use .env locally, secrets on Streamlit Cloud)
 SPOTIPY_CLIENT_ID = os.getenv("SPOTIPY_CLIENT_ID") or st.secrets["spotify"]["SPOTIPY_CLIENT_ID"]
 SPOTIPY_CLIENT_SECRET = os.getenv("SPOTIPY_CLIENT_SECRET") or st.secrets["spotify"]["SPOTIPY_CLIENT_SECRET"]
 SPOTIPY_REDIRECT_URI = os.getenv("SPOTIPY_REDIRECT_URI") or st.secrets["spotify"]["SPOTIPY_REDIRECT_URI"]
 
-# Page config
+# Page setup
 st.set_page_config(page_title="Spotify Visualizer", layout="centered")
 st.title("🎵 Spotify Listening Stats")
 
-# Store Spotify client in session
+# Session state to track login
 if "sp" not in st.session_state:
     st.session_state.sp = None
 
-# Authentication logic
+# Spotify login
 if st.session_state.sp is None:
     auth_manager = SpotifyOAuth(
         client_id=SPOTIPY_CLIENT_ID,
         client_secret=SPOTIPY_CLIENT_SECRET,
         redirect_uri=SPOTIPY_REDIRECT_URI,
         scope="user-read-private user-top-read user-read-recently-played",
-        cache_path=".spotify_cache",
+        cache_path=None,  # prevent cached tokens
         show_dialog=True
     )
 
-    token_info = auth_manager.get_cached_token()
-
-    if not token_info:
-        auth_url = auth_manager.get_authorize_url()
-        st.markdown(
-            f"""
-            <style>
-                .login-btn {{
-                    display: inline-block;
-                    background-color: #1DB954;
-                    color: white;
-                    padding: 0.75em 1.5em;
-                    text-align: center;
-                    text-decoration: none;
-                    border-radius: 25px;
-                    font-weight: bold;
-                    transition: background-color 0.3s ease;
-                    font-size: 16px;
-                }}
-                .login-btn:hover {{
-                    background-color: #1ed760;
-                }}
-            </style>
-            <a href="{auth_url}" class="login-btn">🔐 Login with Spotify</a>
-            """,
-            unsafe_allow_html=True
-        )
-        st.stop()
-    else:
+    query_params = st.query_params
+    if "code" in query_params:
         try:
+            code = query_params["code"][0]
+            token_info = auth_manager.get_access_token(code, as_dict=False)
             sp = spotipy.Spotify(auth_manager=auth_manager)
             user = sp.current_user()
             st.session_state.sp = sp
             st.session_state.username = user.get("display_name", "Your")
+            st.query_params.clear()
             st.rerun()
         except Exception as e:
             st.error(f"Login failed: {e}")
             st.stop()
+    else:
+        auth_url = auth_manager.get_authorize_url()
+        st.markdown(f"🔐 [Click here to login with Spotify]({auth_url})")
+        st.stop()
 
-# After successful login
+# Post-login: welcome
 sp = st.session_state.sp
 username = st.session_state.username
 st.header(f"Welcome, {username}!")
 
-# Load data
+# Load user data
 if st.button("🔄 Load My Spotify Data"):
     with st.spinner("Fetching your Spotify data..."):
         extract_and_store_top_tracks(sp)
     st.success("✅ Data loaded! Refresh the chart below.")
 
-# Time range selection
+# Time period selection
 term_options = {
     "Last 4 Weeks": "short_term",
     "Last 6 Months": "medium_term",
@@ -96,7 +76,7 @@ term_options = {
 term_label = st.selectbox("Top Tracks for:", list(term_options.keys()))
 term = term_options[term_label]
 
-# Load top tracks
+# Query data
 conn = sqlite3.connect("spotify_data.db")
 df = pd.read_sql_query(
     "SELECT track_name, artist_name, genre FROM top_tracks WHERE term = ? ORDER BY play_count ASC",
@@ -104,10 +84,10 @@ df = pd.read_sql_query(
 )
 conn.close()
 
-# UI Tabs
+# Tabs
 tab1, tab2 = st.tabs(["🎵 Top Tracks", "📊 Genre Chart"])
 
-# --- Top Tracks Tab ---
+# Tab 1 - Tracks
 with tab1:
     st.subheader(f"🎶 Top Tracks - {term_label}")
     df_display = df.copy()
@@ -143,7 +123,7 @@ with tab1:
     else:
         st.info("No song suggestions available. Try refreshing your data.")
 
-# --- Genre Chart Tab ---
+# Tab 2 - Genre
 with tab2:
     st.subheader(f"📊 Genre Distribution - {term_label}")
     genres = []
