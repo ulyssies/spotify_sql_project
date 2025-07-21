@@ -37,46 +37,42 @@ if st.session_state.sp is None:
         show_dialog=True
     )
 
-    # Use updated API
     query_params = st.query_params
     if "code" in query_params:
-        code = query_params["code"][0]
-        token_info = auth_manager.get_access_token(code, as_dict=False)
-        sp = spotipy.Spotify(auth_manager=auth_manager)
-        user = sp.current_user()
-        st.session_state.sp = sp
-        st.session_state.username = user.get("display_name", "Your")
-        st.query_params.clear()  # clean URL
-        st.rerun()
+        try:
+            code = query_params["code"][0]
+            token_info = auth_manager.get_access_token(code, as_dict=False)
+            sp = spotipy.Spotify(auth_manager=auth_manager)
+            user = sp.current_user()
+            st.session_state.sp = sp
+            st.session_state.username = user.get("display_name", "Your")
+            st.query_params.clear()
+            st.rerun()
+        except Exception as e:
+            st.error(f"Login failed: {e}")
+            st.stop()
     else:
         auth_url = auth_manager.get_authorize_url()
         st.markdown(
             f"""
             <style>
-            .spotify-button {{
-                background-color: #1DB954;
-                border: none;
-                color: white;
-                padding: 0.75rem 1.5rem;
-                font-size: 1rem;
-                border-radius: 30px;
-                cursor: pointer;
-                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-                transition: background-color 0.3s ease, transform 0.2s ease;
-            }}
-            .spotify-button:hover {{
-                background-color: #1ed760;
-                transform: scale(1.03);
-            }}
+                .login-btn {{
+                    display: inline-block;
+                    background-color: #1DB954;
+                    color: white;
+                    padding: 0.75em 1.5em;
+                    text-align: center;
+                    text-decoration: none;
+                    border-radius: 25px;
+                    font-weight: bold;
+                    transition: background-color 0.3s ease;
+                    font-size: 16px;
+                }}
+                .login-btn:hover {{
+                    background-color: #1ed760;
+                }}
             </style>
-
-            <div style="display: flex; justify-content: center; align-items: center; margin-top: 1rem;">
-                <a href="{auth_url}" target="_self" style="text-decoration: none;">
-                    <button class="spotify-button">
-                        🔐 Login with Spotify
-                    </button>
-                </a>
-            </div>
+            <a href="{auth_url}" class="login-btn">🔐 Login with Spotify</a>
             """,
             unsafe_allow_html=True
         )
@@ -173,3 +169,4 @@ with tab2:
         st.pyplot(fig)
     else:
         st.info("No genre data available for this term.")
+`` ​:contentReference[oaicite:0]{index=0}​
