@@ -3,32 +3,30 @@ import sqlite3
 import pandas as pd
 import matplotlib.pyplot as plt
 from collections import Counter
-from extract_spotify import extract_and_store_top_tracks
-from suggestions import get_song_suggestions
+import os
+from dotenv import load_dotenv
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
-from dotenv import load_dotenv
-import os
+from extract_spotify import extract_and_store_top_tracks
+from suggestions import get_song_suggestions
 
 # Load environment variables
 load_dotenv()
 
-# Credentials (env for local, secrets for Streamlit Cloud)
+# Get credentials from .env or Streamlit secrets
 SPOTIPY_CLIENT_ID = os.getenv("SPOTIPY_CLIENT_ID") or st.secrets["spotify"]["SPOTIPY_CLIENT_ID"]
 SPOTIPY_CLIENT_SECRET = os.getenv("SPOTIPY_CLIENT_SECRET") or st.secrets["spotify"]["SPOTIPY_CLIENT_SECRET"]
 SPOTIPY_REDIRECT_URI = os.getenv("SPOTIPY_REDIRECT_URI") or st.secrets["spotify"]["SPOTIPY_REDIRECT_URI"]
 
-# Page config
+# Configure page
 st.set_page_config(page_title="Spotify Visualizer", layout="centered")
 st.title("🎵 Spotify Listening Stats")
 
-# Store Spotify client in session
+# Set up session state
 if "sp" not in st.session_state:
     st.session_state.sp = None
-
-# Authentication logic
-if st.session_state.sp is None:
-    auth_manager = SpotifyOAuth(
+if "auth_manager" not in st.session_state:
+    st.session_state.auth_manager = SpotifyOAuth(
         client_id=SPOTIPY_CLIENT_ID,
         client_secret=SPOTIPY_CLIENT_SECRET,
         redirect_uri=SPOTIPY_REDIRECT_URI,
@@ -37,36 +35,41 @@ if st.session_state.sp is None:
         show_dialog=True
     )
 
-    query_params = st.query_params
+auth_manager = st.session_state.auth_manager
+query_params = st.query_params
+
+# OAuth flow
+if st.session_state.sp is None:
     if "code" in query_params:
-        code = query_params["code"][0]
         try:
+            code = query_params["code"][0]
             token_info = auth_manager.get_access_token(code, as_dict=False)
             sp = spotipy.Spotify(auth_manager=auth_manager)
             user = sp.current_user()
             st.session_state.sp = sp
             st.session_state.username = user.get("display_name", "Your")
+            st.query_params.clear()  # Clean URL after login
             st.rerun()
         except Exception as e:
             st.error(f"Login failed: {e}")
             st.stop()
     else:
         auth_url = auth_manager.get_authorize_url()
-        st.markdown(f"🔐 [Click here to login with Spotify]({auth_url})")
+        st.markdown(f"🔐 [Login with Spotify]({auth_url})")
         st.stop()
 
-# After successful login
+# User is authenticated
 sp = st.session_state.sp
 username = st.session_state.username
 st.header(f"Welcome, {username}!")
 
-# Load data
+# Load Spotify data
 if st.button("🔄 Load My Spotify Data"):
     with st.spinner("Fetching your Spotify data..."):
         extract_and_store_top_tracks(sp)
     st.success("✅ Data loaded! Refresh the chart below.")
 
-# Time range selection
+# Choose time range
 term_options = {
     "Last 4 Weeks": "short_term",
     "Last 6 Months": "medium_term",
@@ -75,7 +78,7 @@ term_options = {
 term_label = st.selectbox("Top Tracks for:", list(term_options.keys()))
 term = term_options[term_label]
 
-# Load top tracks
+# Query DB
 conn = sqlite3.connect("spotify_data.db")
 df = pd.read_sql_query(
     "SELECT track_name, artist_name, genre FROM top_tracks WHERE term = ? ORDER BY play_count ASC",
@@ -83,10 +86,9 @@ df = pd.read_sql_query(
 )
 conn.close()
 
-# UI Tabs
+# Tabs
 tab1, tab2 = st.tabs(["🎵 Top Tracks", "📊 Genre Chart"])
 
-# --- Top Tracks Tab ---
 with tab1:
     st.subheader(f"🎶 Top Tracks - {term_label}")
     df_display = df.copy()
@@ -122,7 +124,6 @@ with tab1:
     else:
         st.info("No song suggestions available. Try refreshing your data.")
 
-# --- Genre Chart Tab ---
 with tab2:
     st.subheader(f"📊 Genre Distribution - {term_label}")
     genres = []
