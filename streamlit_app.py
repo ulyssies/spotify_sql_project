@@ -20,7 +20,7 @@ SPOTIPY_REDIRECT_URI = os.getenv("SPOTIPY_REDIRECT_URI") or st.secrets["spotify"
 
 # Page config
 st.set_page_config(page_title="Spotify Visualizer", layout="centered")
-st.title("\ud83c\udfb7 Spotify Listening Stats")
+st.title("🎵 Spotify Listening Stats")  # safer emoji
 
 # Store Spotify client in session
 if "sp" not in st.session_state:
