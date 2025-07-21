@@ -5,81 +5,94 @@ from dotenv import load_dotenv
 import os
 import time
 
-# Load environment variables
-load_dotenv()
+def extract_and_store_top_tracks():
+    load_dotenv()
 
-# Set up Spotify API credentials from the .env file
-client_id = os.getenv("SPOTIPY_CLIENT_ID")
-client_secret = os.getenv("SPOTIPY_CLIENT_SECRET")
-redirect_uri = os.getenv("SPOTIPY_REDIRECT_URI")
+    sp = spotipy.Spotify(auth_manager=SpotifyOAuth(
+        client_id=os.getenv("SPOTIPY_CLIENT_ID"),
+        client_secret=os.getenv("SPOTIPY_CLIENT_SECRET"),
+        redirect_uri=os.getenv("SPOTIPY_REDIRECT_URI"),
+        scope="user-top-read user-read-recently-played"
+    ))
 
-# Initialize Spotipy client
-sp = spotipy.Spotify(auth_manager=SpotifyOAuth(
-    client_id=client_id,
-    client_secret=client_secret,
-    redirect_uri=redirect_uri,
-    scope="user-top-read user-read-recently-played"
-))
+    conn = sqlite3.connect("spotify_data.db")
+    cursor = conn.cursor()
 
-# Connect to SQLite database
-conn = sqlite3.connect("spotify_data.db")
-cursor = conn.cursor()
+    # 🧨 Drop old table to avoid UNIQUE constraint issue
+    cursor.execute("DROP TABLE IF EXISTS top_tracks")
 
-# Create the table if it doesn't exist
-cursor.execute('''
-CREATE TABLE IF NOT EXISTS top_tracks (
-    track_id TEXT PRIMARY KEY,
-    track_name TEXT,
-    artist_name TEXT,
-    genre TEXT,
-    term TEXT,
-    play_count INTEGER
-)
-''')
-conn.commit()
-
-# Fetch genres for each track by artist
-def get_artist_genres(artist_id):
-    try:
-        artist = sp.artist(artist_id)
-        genres = artist.get('genres', [])
-        return ', '.join(genres) if genres else 'Unknown'
-    except Exception as e:
-        print(f"Error fetching genres for artist {artist_id}: {e}")
-        return 'Unknown'
-
-# Fetch top tracks for a given time range and store in the database
-def insert_top_tracks_for_term(time_range):
-    print(f"Fetching top tracks for {time_range}...")
-    results = sp.current_user_top_tracks(limit=50, time_range=time_range)
-    
-    for item in results['items']:
-        track_id = item['id']
-        track_name = item['name']
-        artist_name = item['artists'][0]['name']
-        artist_id = item['artists'][0]['id']
-        
-        # Get genre from the artist
-        genre = get_artist_genres(artist_id)
-        
-        # Insert data into the database
-        cursor.execute('''
-        INSERT OR REPLACE INTO top_tracks (track_id, track_name, artist_name, genre, term, play_count)
-        VALUES (?, ?, ?, ?, ?, ?)
-        ''', (track_id, track_name, artist_name, genre, time_range, 1))  # play_count starts at 1
+    # ✅ Recreate table with composite primary key
+    cursor.execute('''
+        CREATE TABLE top_tracks (
+            track_id TEXT,
+            track_name TEXT,
+            artist_name TEXT,
+            genre TEXT,
+            term TEXT,
+            play_count INTEGER,
+            PRIMARY KEY (track_id, term)
+        )
+    ''')
     conn.commit()
 
-# Insert top tracks for all time ranges
-def insert_tracks_for_all_time_ranges():
-    for time_range in ['short_term', 'medium_term', 'long_term']:
-        insert_top_tracks_for_term(time_range)
-        # To avoid hitting rate limits, wait a moment between requests
-        time.sleep(2)
+    def get_artist_genres(artist_id):
+        try:
+            artist = sp.artist(artist_id)
+            return ', '.join(artist.get('genres', [])) or 'Unknown'
+        except:
+            return 'Unknown'
 
-# Run the extraction and store in the database
-insert_tracks_for_all_time_ranges()
+    def insert_top_tracks_for_term(term):
+        print(f"Fetching top tracks for {term}...")
+        results = sp.current_user_top_tracks(limit=50, time_range=term)
+        items = results.get('items', [])
 
-# Close the connection
-conn.close()
+        seen_ids = set()
+        inserted = 0
 
-print("Data extraction and analysis completed!")
+        for item in items:
+            if inserted >= 25:
+                break
+            tid = item['id']
+            seen_ids.add(tid)
+            cursor.execute('''
+                INSERT INTO top_tracks VALUES (?, ?, ?, ?, ?, ?)
+            ''', (
+                tid,
+                item['name'],
+                item['artists'][0]['name'],
+                get_artist_genres(item['artists'][0]['id']),
+                term,
+                inserted + 1
+            ))
+            inserted += 1
+
+        if inserted < 25:
+            print(f"Only {inserted} top tracks found, filling with recent tracks...")
+            recent = sp.current_user_recently_played(limit=50)
+            for r in recent.get('items', []):
+                tid = r['track']['id']
+                if tid in seen_ids:
+                    continue
+                seen_ids.add(tid)
+                cursor.execute('''
+                    INSERT INTO top_tracks VALUES (?, ?, ?, ?, ?, ?)
+                ''', (
+                    tid,
+                    r['track']['name'],
+                    r['track']['artists'][0]['name'],
+                    get_artist_genres(r['track']['artists'][0]['id']),
+                    term,
+                    inserted + 1
+                ))
+                inserted += 1
+                if inserted >= 25:
+                    break
+        conn.commit()
+
+    for term in ['short_term', 'medium_term', 'long_term']:
+        insert_top_tracks_for_term(term)
+        time.sleep(1.5)
+
+    conn.close()
+    print("✅ Data extraction and update complete!")

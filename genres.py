@@ -1,3 +1,5 @@
+# Standalone script for visualizing genre breakdowns (used for testing outside Streamlit)
+
 import sqlite3
 import matplotlib.pyplot as plt
 from collections import Counter

@@ -1,14 +1,24 @@
-# Ignore virtual environment
-venv/
-
-# Ignore environment variable files
+# Environment files
 .env
+*.env
 
-# Ignore database file (optional)
+# Python cache and bytecode
+__pycache__/
+*.py[cod]
+
+# Virtual environments
+venv/
+.env/
+.venv/
+
+# SQLite database file
 spotify_data.db
 
-# macOS system file
+# Jupyter notebooks checkpoints (if any)
+.ipynb_checkpoints/
+
+# macOS or system files
 .DS_Store
 
-# VSCode settings (optional)
-.vscode/
+# Streamlit generated files
+.streamlit/

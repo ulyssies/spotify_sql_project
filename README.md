@@ -1,103 +1,107 @@
-# 🎵 Spotify SQL Tracker
+# 🎧 Spotify Listening Visualizer
 
-Spotify SQL Tracker is a personal data project that connects to the Spotify Web API, collects your top tracks and recently played songs, and stores them in a SQL database. It then provides simplified visualizations and insights into your music history and listening preferences using Python and SQL.
-
----
-
-## 🧠 Project Purpose
-
-I created this project to provide music lovers and data enthusiasts with a clean, interactive way to explore their Spotify listening history. It’s a portfolio piece that demonstrates API integration, SQL querying, and data visualization — all tied together in a simple, readable workflow.
+This Streamlit web app connects with your Spotify account to visualize and analyze your listening habits. It displays your top tracks, genre preferences, and suggests new music based on your recent activity.
 
 ---
 
-## 🚀 Features
+## 🔧 Features
 
-- Authenticates via Spotify OAuth
-- Fetches top tracks, artists, and audio features
-- Stores structured data in SQLite
-- Visualizes trends (e.g. genres, danceability, popularity)
-- Performs SQL analysis on stored data
+- **Top Tracks Analysis**:
+  - View your top 25 tracks for the last 4 weeks, 6 months, and 12 months.
+  - Displays track names, artist names, and popularity rankings.
+
+- **Genre Insights**:
+  - Clean, interactive pie charts showing your genre distribution.
+  - Filters out "Unknown" genres and combines less common genres into "Other."
+
+- **Music Recommendations**:
+  - Suggests 5 new songs based on your listening habits.
+  - Provides preview links and fallback Spotify links if recommendation API fails.
+
+- **Interactive Web Interface**:
+  - Built with Streamlit for ease of use.
+  - Data refresh button for quick updates.
 
 ---
 
-## 🛠️ Setup Instructions
+## 📊 Data Processing & Insights
 
-1. **Clone this repository**
+This app does more than display Spotify data — it transforms it into meaningful insights. Key data components include:
+
+- **ETL Process**:
+  - Extracts top and recent track data using the Spotify Web API.
+  - Transforms data by cleaning, validating, and enhancing with genre metadata.
+  - Loads structured results into a local SQLite database.
+
+- **Data Enrichment & Cleaning**:
+  - Normalizes and deduplicates track data.
+  - Supplements incomplete results with recently played tracks.
+  - Uses Spotify artist metadata to enhance each entry with genre classification.
+
+- **Visualization**:
+  - Utilizes Pandas and Matplotlib to create readable tables and visual genre charts.
+  - Categorizes listening behavior across short, medium, and long term periods.
+
+- **Recommendation System**:
+  - Uses Spotify’s recommendation engine with top seeds.
+  - Fallback mechanism includes direct track links if API fails.
+
+---
+
+## 🧰 Tech Stack
+
+- Python 3.12
+- Streamlit
+- Spotipy (Spotify Web API client)
+- SQLite
+- Matplotlib
+- Pandas
+- dotenv
+
+---
+
+## 🚀 Getting Started
+
+### 1. Clone this repository
 ```bash
-git clone https://github.com/ulyssies/spotify_sql_project.git
-cd spotify_sql_project
+git clone https://github.com/yourusername/spotify-visualizer.git
+cd spotify-visualizer
 ```
 
-2. **Create your `.env` file** using the provided `.env.example`
-
-3. **Create and activate your virtual environment**
+### 2. Set up a virtual environment
 ```bash
 python3 -m venv venv
-source venv/bin/activate
+source venv/bin/activate  # On Windows use `venv\Scripts\activate`
 ```
 
-4. **Install dependencies**
+### 3. Install dependencies
 ```bash
 pip install -r requirements.txt
 ```
 
-5. **Run the extractor**
-```bash
-python extract_spotify.py
-```
-
-6. **Create the database**
-```bash
-python create_database.py
-```
-
-7. **Visualize or analyze your data**
-```bash
-python check_database.py
-python genres.py
-```
-
----
-
-## 📁 Folder Structure
-
-```
-spotify_sql_project/
-├── README.md
-├── .env.example
-├── requirements.txt
-├── extract_spotify.py
-├── create_database.py
-├── check_database.py
-├── genres.py
-├── spotify_data.db
-├── visuals/              # (Optional) Visual output folder
-└── venv/                 # Virtual environment (excluded from Git)
-```
-
----
-
-## 🔐 .env File
-
-This project uses environment variables for your Spotify credentials.  
-Use the provided `.env.example` to create your own `.env` file:
-
+### 4. Set up Spotify Developer App
+- Go to [Spotify Developer Dashboard](https://developer.spotify.com/dashboard)
+- Create an app and get your `Client ID`, `Client Secret`, and `Redirect URI`
+- Create a `.env` file and add your credentials:
 ```env
-SPOTIPY_CLIENT_ID=your_client_id_here
-SPOTIPY_CLIENT_SECRET=your_client_secret_here
-SPOTIPY_REDIRECT_URI=http://127.0.0.1:8888/callback
+SPOTIPY_CLIENT_ID=your_client_id
+SPOTIPY_CLIENT_SECRET=your_client_secret
+SPOTIPY_REDIRECT_URI=http://localhost:8888/callback
+```
+
+### 5. Run the app
+```bash
+streamlit run streamlit_app.py
 ```
 
 ---
 
-## 🧑‍💻 Author
-
-**Ulyssies Adams**  
-[GitHub](https://github.com/ulyssies) • 
-[LinkedIn](https://www.linkedin.com/in/ulyssiesadams/)
+## 📝 License
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
 
-## 📄 License
-
-This project is for educational and personal use. Feel free to fork, contribute, or build upon it.
+## 🙌 Acknowledgments
+- [Spotify Web API](https://developer.spotify.com/documentation/web-api/)
+- [Streamlit](https://streamlit.io/)
+- [Spotipy](https://github.com/plamere/spotipy)
