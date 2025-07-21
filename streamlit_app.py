@@ -37,21 +37,9 @@ if st.session_state.sp is None:
         show_dialog=True
     )
 
-    query_params = st.query_params
-    if "code" in query_params:
-        try:
-            code = query_params["code"][0]
-            token_info = auth_manager.get_access_token(code, as_dict=False)
-            sp = spotipy.Spotify(auth_manager=auth_manager)
-            user = sp.current_user()
-            st.session_state.sp = sp
-            st.session_state.username = user.get("display_name", "Your")
-            st.query_params.clear()
-            st.rerun()
-        except Exception as e:
-            st.error(f"Login failed: {e}")
-            st.stop()
-    else:
+    token_info = auth_manager.get_cached_token()
+
+    if not token_info:
         auth_url = auth_manager.get_authorize_url()
         st.markdown(
             f"""
@@ -77,6 +65,16 @@ if st.session_state.sp is None:
             unsafe_allow_html=True
         )
         st.stop()
+    else:
+        try:
+            sp = spotipy.Spotify(auth_manager=auth_manager)
+            user = sp.current_user()
+            st.session_state.sp = sp
+            st.session_state.username = user.get("display_name", "Your")
+            st.rerun()
+        except Exception as e:
+            st.error(f"Login failed: {e}")
+            st.stop()
 
 # After successful login
 sp = st.session_state.sp
