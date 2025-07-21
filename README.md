@@ -71,7 +71,7 @@ This app does more than display Spotify data — it transforms it into meaningfu
 
 ### 1. Clone this repository
 ```bash
-git clone https://github.com/yourusername/spotify-visualizer.git
+git clone https://github.com/ulyssies/spotify-visualizer.git
 cd spotify-visualizer
 ```
 
