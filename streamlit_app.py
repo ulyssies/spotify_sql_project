@@ -35,11 +35,10 @@ if st.session_state.sp is None:
         scope="user-read-private user-top-read user-read-recently-played",
         cache_path=".spotify_cache",  # Helps reuse session
         show_dialog=True,
-        open_browser=False            # MUST be False for Streamlit Cloud
+        open_browser=False  # REQUIRED: must be False for Streamlit Cloud
     )
-    token_info = auth_manager.get_cached_token()
 
-    if not token_info:
+    if not auth_manager.get_cached_token():
         auth_url = auth_manager.get_authorize_url()
         st.markdown(f"🔐 [Click here to login with Spotify]({auth_url})")
         st.stop()
