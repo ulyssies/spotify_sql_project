@@ -1,25 +1,8 @@
-import spotipy
-from spotipy.oauth2 import SpotifyOAuth
+# ✅ Updated extract_spotify.py
 import sqlite3
-from dotenv import load_dotenv
-import os
 import time
-import streamlit as st
 
-load_dotenv()
-
-SPOTIPY_CLIENT_ID = os.getenv("SPOTIPY_CLIENT_ID") or st.secrets["spotify"]["SPOTIPY_CLIENT_ID"]
-SPOTIPY_CLIENT_SECRET = os.getenv("SPOTIPY_CLIENT_SECRET") or st.secrets["spotify"]["SPOTIPY_CLIENT_SECRET"]
-SPOTIPY_REDIRECT_URI = os.getenv("SPOTIPY_REDIRECT_URI") or st.secrets["spotify"]["SPOTIPY_REDIRECT_URI"]
-
-def extract_and_store_top_tracks():
-    sp = spotipy.Spotify(auth_manager=SpotifyOAuth(
-        client_id=SPOTIPY_CLIENT_ID,
-        client_secret=SPOTIPY_CLIENT_SECRET,
-        redirect_uri=SPOTIPY_REDIRECT_URI,
-        scope="user-top-read user-read-recently-played"
-    ))
-
+def extract_and_store_top_tracks(sp):
     conn = sqlite3.connect("spotify_data.db")
     cursor = conn.cursor()
 

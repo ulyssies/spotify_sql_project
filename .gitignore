@@ -1,6 +1,5 @@
 # Environment files
-.env
-*.env
+.env*
 
 # Python cache and bytecode
 __pycache__/
@@ -8,7 +7,6 @@ __pycache__/
 
 # Virtual environments
 venv/
-.env/
 .venv/
 
 # SQLite database file
@@ -17,8 +15,12 @@ spotify_data.db
 # macOS or system files
 .DS_Store
 
-# Streamlit secrets (only the secrets file)
+# Streamlit secrets
 .streamlit/secrets.toml
 
-# Allow other Streamlit config files (optional)
+# Streamlit config (keep other configs if needed)
 !.streamlit/config.toml
+
+# IDE/editor folders (optional)
+.vscode/
+.idea/

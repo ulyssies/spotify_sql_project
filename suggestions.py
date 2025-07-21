@@ -1,27 +1,12 @@
+# ✅ Updated suggestions.py
 import os
 import sqlite3
-import spotipy
-from spotipy.oauth2 import SpotifyOAuth
-from dotenv import load_dotenv
 import streamlit as st
+import spotipy
 
-# Load environment variables
-load_dotenv()
+# Function expects Spotify client to be passed in
 
-# Unified support: local + Streamlit Cloud
-SPOTIPY_CLIENT_ID = os.getenv("SPOTIPY_CLIENT_ID") or st.secrets["spotify"]["SPOTIPY_CLIENT_ID"]
-SPOTIPY_CLIENT_SECRET = os.getenv("SPOTIPY_CLIENT_SECRET") or st.secrets["spotify"]["SPOTIPY_CLIENT_SECRET"]
-SPOTIPY_REDIRECT_URI = os.getenv("SPOTIPY_REDIRECT_URI") or st.secrets["spotify"]["SPOTIPY_REDIRECT_URI"]
-
-# Initialize Spotify client
-sp = spotipy.Spotify(auth_manager=SpotifyOAuth(
-    client_id=SPOTIPY_CLIENT_ID,
-    client_secret=SPOTIPY_CLIENT_SECRET,
-    redirect_uri=SPOTIPY_REDIRECT_URI,
-    scope="user-read-private user-top-read user-read-recently-played"
-))
-
-def validate_seed_tracks(track_ids):
+def validate_seed_tracks(track_ids, sp):
     valid = []
     print("🔍 Validating seed tracks...")
     for tid in track_ids:
@@ -42,23 +27,25 @@ def validate_seed_tracks(track_ids):
             print(f"❌ Error validating track {tid}: {e}")
     return valid
 
-def get_song_suggestions(term="short_term"):
-    # Step 1: Try top tracks from DB
+def get_song_suggestions(term="short_term", sp=None):
+    if not sp:
+        print("❌ Spotify client not provided.")
+        return []
+
     conn = sqlite3.connect("spotify_data.db")
     cursor = conn.cursor()
     cursor.execute("SELECT track_id FROM top_tracks WHERE term = ? ORDER BY play_count DESC", (term,))
     db_track_ids = [row[0] for row in cursor.fetchall()]
     conn.close()
 
-    seed_tracks = validate_seed_tracks(db_track_ids)
+    seed_tracks = validate_seed_tracks(db_track_ids, sp)
 
-    # Step 2: Fallback to recently played tracks
     if len(seed_tracks) < 3:
         print("⚠️ Not enough valid tracks from DB, using recently played...")
         try:
             recent = sp.current_user_recently_played(limit=20)
             recent_ids = [item['track']['id'] for item in recent['items']]
-            seed_tracks = validate_seed_tracks(recent_ids)
+            seed_tracks = validate_seed_tracks(recent_ids, sp)
         except Exception as e:
             print(f"❌ Could not fetch recent tracks: {e}")
             return []
@@ -67,16 +54,13 @@ def get_song_suggestions(term="short_term"):
         print("❌ No valid seed tracks found.")
         return []
 
-    # Step 3: Get recommendations
     try:
         print("🎯 Using seed tracks:", seed_tracks)
         recs = sp.recommendations(seed_tracks=seed_tracks[:5], limit=5)
     except Exception as e:
         print(f"❌ Spotify API error (recommendations): {e}")
-        print("🛠️ Falling back to manual track links...")
-        return manual_suggestions(seed_tracks[:5])
+        return manual_suggestions(seed_tracks[:5], sp)
 
-    # Step 4: Format recommendation results
     suggestions = []
     for track in recs['tracks']:
         name = track['name']
@@ -103,7 +87,7 @@ def get_song_suggestions(term="short_term"):
 
     return suggestions
 
-def manual_suggestions(track_ids):
+def manual_suggestions(track_ids, sp):
     fallback = []
     for tid in track_ids:
         try:

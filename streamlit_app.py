@@ -19,20 +19,43 @@ SPOTIPY_CLIENT_SECRET = os.getenv("SPOTIPY_CLIENT_SECRET") or st.secrets["spotif
 SPOTIPY_REDIRECT_URI = os.getenv("SPOTIPY_REDIRECT_URI") or st.secrets["spotify"]["SPOTIPY_REDIRECT_URI"]
 
 st.set_page_config(page_title="Spotify Visualizer", layout="centered")
+st.title("🎷 Spotify Listening Stats")
 
-sp = spotipy.Spotify(auth_manager=SpotifyOAuth(
-    client_id=SPOTIPY_CLIENT_ID,
-    client_secret=SPOTIPY_CLIENT_SECRET,
-    redirect_uri=SPOTIPY_REDIRECT_URI,
-    scope="user-read-private"
-))
-username = sp.current_user().get("display_name", "Your")
+# Use session state to store token
+if "sp" not in st.session_state:
+    st.session_state.sp = None
 
-st.title(f"{username}'s 🎷 Spotify Listening Stats")
+if st.session_state.sp is None:
+    st.markdown("### Please log in to Spotify to continue")
+    if st.button("🔑 Login with Spotify"):
+        try:
+            auth_manager = SpotifyOAuth(
+                client_id=SPOTIPY_CLIENT_ID,
+                client_secret=SPOTIPY_CLIENT_SECRET,
+                redirect_uri=SPOTIPY_REDIRECT_URI,
+                scope="user-read-private user-top-read user-read-recently-played",
+                show_dialog=True,
+                open_browser=True,
+                cache_path=".spotify_cache"
+            )
+            sp = spotipy.Spotify(auth_manager=auth_manager)
+            user = sp.current_user()
+            if user:
+                st.session_state.sp = sp
+                st.session_state.username = user.get("display_name", "Your")
+                st.rerun()
+        except Exception as e:
+            st.error(f"Login failed: {e}")
+    st.stop()
+
+# After login
+sp = st.session_state.sp
+username = st.session_state.get("username", "Your")
+st.header(f"Welcome, {username}!")
 
 if st.button("🔄 Load My Spotify Data"):
     with st.spinner("Fetching your Spotify data..."):
-        extract_and_store_top_tracks()
+        extract_and_store_top_tracks(sp)
     st.success("✅ Data loaded! Refresh the chart below.")
 
 term_options = {
@@ -50,6 +73,7 @@ df = pd.read_sql_query(
 )
 conn.close()
 
+# Tabs
 tab1, tab2 = st.tabs(["🎵 Top Tracks", "📊 Genre Chart"])
 
 with tab1:
@@ -64,7 +88,7 @@ with tab1:
 
     st.markdown("---")
     st.subheader("💡 Suggested Songs Based on Your Top Tracks")
-    suggestions = get_song_suggestions(term)
+    suggestions = get_song_suggestions(term, sp)
 
     if suggestions:
         for s in suggestions:
@@ -80,7 +104,9 @@ with tab1:
                     else:
                         st.markdown("🎵")
                 with col2:
-                    st.markdown(f"**{name}**  \n*by {artist}*  \n💬 {excerpt}")
+                    st.markdown(f"**{name}**  ")
+                    st.markdown(f"*by {artist}*  ")
+                    st.markdown(f"💬 {excerpt}")
             st.markdown("---")
     else:
         st.info("No song suggestions available. Try refreshing your data.")
