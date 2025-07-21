@@ -37,17 +37,18 @@ if st.session_state.sp is None:
         show_dialog=True
     )
 
-    # Use updated API
-    query_params = st.query_params
+    query_params = st.experimental_get_query_params()
     if "code" in query_params:
-        code = query_params["code"][0]
-        token_info = auth_manager.get_access_token(code, as_dict=False)
-        sp = spotipy.Spotify(auth_manager=auth_manager)
-        user = sp.current_user()
-        st.session_state.sp = sp
-        st.session_state.username = user.get("display_name", "Your")
-        st.query_params.clear()  # clean URL
-        st.rerun()
+        try:
+            sp = spotipy.Spotify(auth_manager=auth_manager)
+            user = sp.current_user()
+            st.session_state.sp = sp
+            st.session_state.username = user.get("display_name", "Your")
+            st.experimental_set_query_params()  # Clean the URL
+            st.rerun()
+        except Exception as e:
+            st.error(f"Login failed: {e}")
+            st.stop()
     else:
         auth_url = auth_manager.get_authorize_url()
         st.markdown(f"🔐 [Click here to login with Spotify]({auth_url})")
