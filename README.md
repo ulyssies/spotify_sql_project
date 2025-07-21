@@ -1,6 +1,9 @@
-# 🎧 Spotify Listening Visualizer
+This Streamlit web app connects with your Spotify account to visualize and analyze your listening habits. It displays your top tracks, genre preferences, and suggests new music based on your recent activity.
 
-This Streamlit web app connects with your Spotify account to visualize and analyze your listening habits. It displays your top tracks, genre preferences, and suggests new music based on your recent activity. Now compatible with both local development using `.env` and Streamlit Cloud deployment using `secrets.toml`.
+Now compatible with both local development using .env and Streamlit Cloud deployment using secrets.toml.
+
+Live Demo Using Streamlit
+https://spoturvibe.streamlit.app/
 
 ---
 
