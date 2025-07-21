@@ -20,7 +20,7 @@ SPOTIPY_REDIRECT_URI = os.getenv("SPOTIPY_REDIRECT_URI") or st.secrets["spotify"
 
 # Page config
 st.set_page_config(page_title="Spotify Visualizer", layout="centered")
-st.title("🎷 Spotify Listening Stats")
+st.title("\ud83c\udfb7 Spotify Listening Stats")
 
 # Store Spotify client in session
 if "sp" not in st.session_state:
@@ -33,24 +33,23 @@ if st.session_state.sp is None:
         client_secret=SPOTIPY_CLIENT_SECRET,
         redirect_uri=SPOTIPY_REDIRECT_URI,
         scope="user-read-private user-top-read user-read-recently-played",
-        cache_path=".spotify_cache",  # Helps reuse session
-        show_dialog=True,
-        open_browser=False  # REQUIRED: must be False for Streamlit Cloud
+        cache_path=".spotify_cache",
+        show_dialog=True
     )
 
-    if not auth_manager.get_cached_token():
-        auth_url = auth_manager.get_authorize_url()
-        st.markdown(f"🔐 [Click here to login with Spotify]({auth_url})")
-        st.stop()
-
-    try:
+    query_params = st.experimental_get_query_params()
+    if "code" in query_params:
+        code = query_params["code"][0]
+        token_info = auth_manager.get_access_token(code, as_dict=False)
         sp = spotipy.Spotify(auth_manager=auth_manager)
         user = sp.current_user()
         st.session_state.sp = sp
         st.session_state.username = user.get("display_name", "Your")
+        st.experimental_set_query_params()  # clean URL
         st.rerun()
-    except Exception as e:
-        st.error(f"Login failed: {e}")
+    else:
+        auth_url = auth_manager.get_authorize_url()
+        st.markdown(f"\ud83d\udd10 [Click here to login with Spotify]({auth_url})")
         st.stop()
 
 # After successful login
@@ -59,10 +58,10 @@ username = st.session_state.username
 st.header(f"Welcome, {username}!")
 
 # Load data
-if st.button("🔄 Load My Spotify Data"):
+if st.button("\ud83d\udd04 Load My Spotify Data"):
     with st.spinner("Fetching your Spotify data..."):
         extract_and_store_top_tracks(sp)
-    st.success("✅ Data loaded! Refresh the chart below.")
+    st.success("\u2705 Data loaded! Refresh the chart below.")
 
 # Time range selection
 term_options = {
@@ -82,11 +81,11 @@ df = pd.read_sql_query(
 conn.close()
 
 # UI Tabs
-tab1, tab2 = st.tabs(["🎵 Top Tracks", "📊 Genre Chart"])
+tab1, tab2 = st.tabs(["\ud83c\udfb5 Top Tracks", "\ud83d\udcca Genre Chart"])
 
 # --- Top Tracks Tab ---
 with tab1:
-    st.subheader(f"🎶 Top Tracks - {term_label}")
+    st.subheader(f"\ud83c\udfb6 Top Tracks - {term_label}")
     df_display = df.copy()
     df_display.insert(0, "#", range(1, len(df_display) + 1))
     df_display = df_display[["#", "track_name", "artist_name"]].rename(columns={
@@ -96,7 +95,7 @@ with tab1:
     st.dataframe(df_display, use_container_width=True, hide_index=True)
 
     st.markdown("---")
-    st.subheader("💡 Suggested Songs Based on Your Top Tracks")
+    st.subheader("\ud83d\udca1 Suggested Songs Based on Your Top Tracks")
     suggestions = get_song_suggestions(term, sp)
 
     if suggestions:
@@ -111,18 +110,18 @@ with tab1:
                     if image_url:
                         st.image(image_url, width=64)
                     else:
-                        st.markdown("🎵")
+                        st.markdown("\ud83c\udfb5")
                 with col2:
                     st.markdown(f"**{name}**  ")
                     st.markdown(f"*by {artist}*  ")
-                    st.markdown(f"💬 {excerpt}")
+                    st.markdown(f"\ud83d\udcac {excerpt}")
             st.markdown("---")
     else:
         st.info("No song suggestions available. Try refreshing your data.")
 
 # --- Genre Chart Tab ---
 with tab2:
-    st.subheader(f"📊 Genre Distribution - {term_label}")
+    st.subheader(f"\ud83d\udcca Genre Distribution - {term_label}")
     genres = []
     for g in df["genre"]:
         if g and g != "Unknown":
