@@ -33,11 +33,10 @@ if st.session_state.sp is None:
         client_secret=SPOTIPY_CLIENT_SECRET,
         redirect_uri=SPOTIPY_REDIRECT_URI,
         scope="user-read-private user-top-read user-read-recently-played",
-        cache_path=None,  # Do not reuse login between users
+        cache_path=None,  # prevent cached tokens
         show_dialog=True
     )
 
-    # Use query_params from Streamlit
     query_params = st.query_params
     if "code" in query_params:
         try:
@@ -47,7 +46,7 @@ if st.session_state.sp is None:
             user = sp.current_user()
             st.session_state.sp = sp
             st.session_state.username = user.get("display_name", "Your")
-            st.query_params.clear()  # remove ?code=... from URL
+            st.query_params.clear()
             st.rerun()
         except Exception as e:
             st.error(f"Login failed: {e}")
