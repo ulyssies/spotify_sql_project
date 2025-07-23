@@ -19,7 +19,8 @@ for key, default in {
     'username': None,
     'display_name': None,
     'df': pd.DataFrame(),
-    'data_loaded': False
+    'data_loaded': False,
+    'last_term': None
 }.items():
     if key not in st.session_state:
         st.session_state[key] = default
@@ -80,6 +81,20 @@ term_options = {
 term_label = st.selectbox("Top Tracks for:", list(term_options.keys()))
 term = term_options[term_label]
 
+# If user has already loaded data and term changed, re-query
+if st.session_state.data_loaded and st.session_state.last_term != term:
+    uid = st.session_state.username
+    db_path = f"spotify_data_{uid}.db"
+    conn = sqlite3.connect(db_path)
+    st.session_state.df = pd.read_sql_query(
+        "SELECT track_name, artist_name, genre FROM top_tracks "
+        "WHERE term = ? AND username = ? ORDER BY play_count ASC",
+        conn,
+        params=(term, uid)
+    )
+    conn.close()
+    st.session_state.last_term = term
+
 # Define data loader
 def load_user_data():
     # Refresh user info
@@ -103,18 +118,18 @@ def load_user_data():
     conn_dbg.close()
     st.write(f"⚙️ Rows in {db_path} for user {uid}: {total_rows}")
 
-    # Load into DataFrame
+    # Load into DataFrame for this term
     conn = sqlite3.connect(db_path)
     df = pd.read_sql_query(
         "SELECT track_name, artist_name, genre FROM top_tracks "
-        "WHERE term = ? AND username = ? "
-        "ORDER BY play_count ASC",
+        "WHERE term = ? AND username = ? ORDER BY play_count ASC",
         conn,
         params=(term, uid)
     )
     conn.close()
     st.session_state.df = df
     st.session_state.data_loaded = True
+    st.session_state.last_term = term
 
 # Load data button
 if st.button("🔄 Load My Spotify Data"):
