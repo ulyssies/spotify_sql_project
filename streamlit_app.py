@@ -203,3 +203,13 @@ if st.session_state.data_loaded and not st.session_state.df.empty:
             st.info("No genre data available for this term.")
 else:
     st.info("Click '🔄 Load My Spotify Data' to view your personalized stats.")
+
+# ─── DEBUG: download the raw SQLite file ─────────────────────────────────────
+with open("spotify_data.db", "rb") as f:
+    db_bytes = f.read()
+st.download_button(
+    label="📥 Download raw SQLite DB",
+    data=db_bytes,
+    file_name="spotify_data.db",
+    mime="application/x-sqlite3"
+)
