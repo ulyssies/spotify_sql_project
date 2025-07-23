@@ -20,14 +20,8 @@ if "sp" not in st.session_state:
 if "data_loaded" not in st.session_state:
     st.session_state.data_loaded = False
 
-if "df" not in st.session_state:
-    st.session_state.df = pd.DataFrame()
-
 if "username" not in st.session_state:
     st.session_state.username = None
-
-if "display_name" not in st.session_state:
-    st.session_state.display_name = "User"
 
 # Spotify login
 if st.session_state.sp is None:
@@ -47,16 +41,8 @@ if st.session_state.sp is None:
             token_info = auth_manager.get_access_token(code, as_dict=False)
             sp = spotipy.Spotify(auth_manager=auth_manager)
             user = sp.current_user()
-            spotify_id = user.get("id", None)
-            display_name = user.get("display_name", "Your")
-
-            if not spotify_id:
-                st.error("Could not retrieve Spotify ID.")
-                st.stop()
-
             st.session_state.sp = sp
-            st.session_state.username = spotify_id
-            st.session_state.display_name = display_name
+            st.session_state.username = user.get("display_name", "Your")
             st.query_params.clear()
             st.rerun()
         except Exception as e:
@@ -69,7 +55,7 @@ if st.session_state.sp is None:
             <div style='background-color: rgba(0,0,0,0.6); padding: 2rem; border-radius: 1rem; text-align: center;'>
                 <h1 style='font-size: 2.5rem;'>
                     <span style='font-weight: bold;'>
-                        🎧 SpotYourVibe
+                        🎵 SpotYourVibe
                     </span>
                 </h1>
                 <p>This is a personalized Spotify stats visualizer.<br>Log in to explore your top tracks, genres, and discover new music.</p>
@@ -86,10 +72,6 @@ if st.session_state.sp is None:
         st.stop()
 
 # Post-login
-sp = st.session_state.sp
-username = st.session_state.username
-st.header(f"👋 Welcome, {st.session_state.display_name}!")
-
 term_options = {
     "Last 4 Weeks": "short_term",
     "Last 6 Months": "medium_term",
@@ -98,20 +80,25 @@ term_options = {
 term_label = st.selectbox("Top Tracks for:", list(term_options.keys()))
 term = term_options[term_label]
 
+sp = st.session_state.sp
+username = st.session_state.username
+
 if st.button("🔄 Load My Spotify Data"):
     with st.spinner("Fetching your Spotify data..."):
         extract_and_store_top_tracks(sp, username)
-        conn = sqlite3.connect("spotify_data.db")
-        st.session_state.df = pd.read_sql_query(
-            "SELECT track_name, artist_name, genre FROM top_tracks WHERE term = ? AND username = ? ORDER BY play_count ASC",
-            conn, params=(term, username)
-        )
-        conn.close()
         st.session_state.data_loaded = True
     st.success("✅ Data loaded! Refresh the chart below.")
 
-if st.session_state.data_loaded and not st.session_state.df.empty:
-    df = st.session_state.df
+if st.session_state.data_loaded:
+    conn = sqlite3.connect("spotify_data.db")
+    df = pd.read_sql_query(
+        "SELECT track_name, artist_name, genre FROM top_tracks WHERE term = ? AND username = ? ORDER BY play_count ASC",
+        conn, params=(term, username)
+    )
+    conn.close()
+
+    st.header(f"👋 Welcome, {username}!")
+
     tab1, tab2 = st.tabs(["🎵 Top Tracks", "📊 Genre Chart"])
 
     with tab1:
@@ -197,7 +184,7 @@ if st.session_state.data_loaded and not st.session_state.df.empty:
                     current = genre_df[genre_df["Genre"] == genre]["Percentage"].values[0]
                     past = long_pct.get(genre, 0)
                     delta = current - past
-                    symbol = "🔺" if delta > 0 else ("🔻" if delta < 0 else "➖")
+                    symbol = "🔺" if delta > 0 else ("\ud83d\udd3b" if delta < 0 else "➖")
                     change_summary.append(f"{symbol} {genre}: {delta:+.1f}%")
 
                 st.markdown("**Genre Change Compared to All Time:**")
