@@ -79,7 +79,7 @@ sp = st.session_state.sp
 
 if st.session_state.data_loaded and st.session_state.username:
     username = st.session_state.username
-    st.header(f"👋 Welcome, {username}!"
+    st.header(f"👋 Welcome, {username}!")
 
 term_options = {
     "Last 4 Weeks": "short_term",
