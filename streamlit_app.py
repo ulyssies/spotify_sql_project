@@ -44,35 +44,40 @@ auth_manager = SpotifyOAuth(
 )
 
 if st.session_state.sp is None:
-    params = st.experimental_get_query_params()
+    auth_manager = SpotifyOAuth(
+        client_id=SPOTIPY_CLIENT_ID,
+        client_secret=SPOTIPY_CLIENT_SECRET,
+        redirect_uri=SPOTIPY_REDIRECT_URI,
+        scope="user-read-private user-top-read user-read-recently-played",
+        cache_path=None,
+        show_dialog=True,
+    )
 
+    params = st.experimental_get_query_params()
     if "code" in params:
         try:
-            # exchange code for token
+            # Exchange code for token
             auth_manager.get_access_token(params["code"][0], as_dict=False)
             sp = spotipy.Spotify(auth_manager=auth_manager)
             user = sp.current_user()
 
-            # store in session
+            # Store in session
             st.session_state.sp = sp
             st.session_state.username     = user["id"]
             st.session_state.display_name = user.get("display_name", "User")
 
-            # clear `?code=` from URL and restart
+            # Clear `?code=` and rerun
             st.experimental_set_query_params()
             st.experimental_rerun()
 
         except Exception as e:
             st.error(f"Login failed: {e}")
             st.stop()
-
     else:
-        # show login button
+        # Prompt to log in
         login_url = auth_manager.get_authorize_url()
         st.markdown(
-            "<h1 style='text-align:center;'><a href='"
-            + login_url +
-            "'>🔐 Log in with Spotify</a></h1>",
+            f"<h1 style='text-align:center;'><a href='{login_url}'>🔐 Log in with Spotify</a></h1>",
             unsafe_allow_html=True,
         )
         st.stop()
