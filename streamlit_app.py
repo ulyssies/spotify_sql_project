@@ -13,17 +13,21 @@ from secrets_handler import SPOTIPY_CLIENT_ID, SPOTIPY_CLIENT_SECRET, SPOTIPY_RE
 # Set page config
 st.set_page_config(page_title="Spotify Statistics Visualizer", layout="centered")
 
+# Initialize session state
 if "sp" not in st.session_state:
     st.session_state.sp = None
-if "username" not in st.session_state:
-    st.session_state.username = None
+
 if "data_loaded" not in st.session_state:
     st.session_state.data_loaded = False
+
 if "df" not in st.session_state:
     st.session_state.df = pd.DataFrame()
 
+if "username" not in st.session_state:
+    st.session_state.username = None
+
 # Spotify login
-if st.session_state.sp is None or st.session_state.username is None:
+if st.session_state.sp is None:
     auth_manager = SpotifyOAuth(
         client_id=SPOTIPY_CLIENT_ID,
         client_secret=SPOTIPY_CLIENT_SECRET,
