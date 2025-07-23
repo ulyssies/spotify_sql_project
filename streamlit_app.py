@@ -26,6 +26,9 @@ if "df" not in st.session_state:
 if "username" not in st.session_state:
     st.session_state.username = None
 
+if "display_name" not in st.session_state:
+    st.session_state.display_name = "User"
+
 # Spotify login
 if st.session_state.sp is None:
     auth_manager = SpotifyOAuth(
@@ -44,8 +47,16 @@ if st.session_state.sp is None:
             token_info = auth_manager.get_access_token(code, as_dict=False)
             sp = spotipy.Spotify(auth_manager=auth_manager)
             user = sp.current_user()
+            spotify_id = user.get("id", None)
+            display_name = user.get("display_name", "Your")
+
+            if not spotify_id:
+                st.error("Could not retrieve Spotify ID.")
+                st.stop()
+
             st.session_state.sp = sp
-            st.session_state.username = user.get("display_name", "Your")
+            st.session_state.username = spotify_id
+            st.session_state.display_name = display_name
             st.query_params.clear()
             st.rerun()
         except Exception as e:
@@ -77,7 +88,7 @@ if st.session_state.sp is None:
 # Post-login
 sp = st.session_state.sp
 username = st.session_state.username
-st.header(f"👋 Welcome, {username}!")
+st.header(f"👋 Welcome, {st.session_state.display_name}!")
 
 term_options = {
     "Last 4 Weeks": "short_term",
