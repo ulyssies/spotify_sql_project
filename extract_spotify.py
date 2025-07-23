@@ -1,8 +1,7 @@
-# ✅ Updated extract_spotify.py
 import sqlite3
 import time
 
-def extract_and_store_top_tracks(sp):
+def extract_and_store_top_tracks(sp, username):
     conn = sqlite3.connect("spotify_data.db")
     cursor = conn.cursor()
 
@@ -15,7 +14,8 @@ def extract_and_store_top_tracks(sp):
             genre TEXT,
             term TEXT,
             play_count INTEGER,
-            PRIMARY KEY (track_id, term)
+            username TEXT,
+            PRIMARY KEY (track_id, term, username)
         )
     ''')
     conn.commit()
@@ -40,14 +40,15 @@ def extract_and_store_top_tracks(sp):
             tid = item['id']
             seen_ids.add(tid)
             cursor.execute('''
-                INSERT INTO top_tracks VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO top_tracks VALUES (?, ?, ?, ?, ?, ?, ?)
             ''', (
                 tid,
                 item['name'],
                 item['artists'][0]['name'],
                 get_artist_genres(item['artists'][0]['id']),
                 term,
-                inserted + 1
+                inserted + 1,
+                username
             ))
             inserted += 1
 
@@ -60,14 +61,15 @@ def extract_and_store_top_tracks(sp):
                     continue
                 seen_ids.add(tid)
                 cursor.execute('''
-                    INSERT INTO top_tracks VALUES (?, ?, ?, ?, ?, ?)
+                    INSERT INTO top_tracks VALUES (?, ?, ?, ?, ?, ?, ?)
                 ''', (
                     tid,
                     r['track']['name'],
                     r['track']['artists'][0]['name'],
                     get_artist_genres(r['track']['artists'][0]['id']),
                     term,
-                    inserted + 1
+                    inserted + 1,
+                    username
                 ))
                 inserted += 1
                 if inserted >= 25:

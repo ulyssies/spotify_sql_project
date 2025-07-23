@@ -1,9 +1,10 @@
+# 🎧 SpotYourVibe — Spotify Statistics Visualizer
+
 This Streamlit web app connects with your Spotify account to visualize and analyze your listening habits. It displays your top tracks, genre preferences, and suggests new music based on your recent activity.
 
-Now compatible with both local development using .env and Streamlit Cloud deployment using secrets.toml.
+Now compatible with both local development using `.env` and Streamlit Cloud deployment using `secrets.toml`.
 
-Live Demo Using Streamlit
-https://spoturvibe.streamlit.app/
+👉 [Live Demo](https://spoturvibe.streamlit.app/)
 
 ---
 
@@ -14,44 +15,46 @@ https://spoturvibe.streamlit.app/
   - Displays track names, artist names, and popularity rankings.
 
 - **Genre Insights**:
-  - Clean, interactive pie charts showing your genre distribution.
-  - Filters out "Unknown" genres and combines less common genres into "Other."
+  - Clean, interactive bar charts showing your genre distribution.
+  - Hoverable tooltips with percentage values.
+  - +/− summary comparing recent vs. all-time genre changes.
 
 - **Music Recommendations**:
   - Suggests 5 new songs based on your top listening data.
-  - Includes fallback to recently played tracks if needed.
-  - Shows preview links and album art, with direct links to Spotify if preview unavailable.
+  - Fallback to recently played tracks if needed.
+  - Shows album art, excerpts, and Spotify links.
 
 - **Smart Secrets Handling**:
   - Supports both local `.env` and cloud `secrets.toml` config for seamless deployment.
 
 - **Interactive Web Interface**:
-  - Built with Streamlit for a responsive, accessible UI.
-  - Data refresh button for quick Spotify sync.
+  - Built with Streamlit for a responsive, modern UI.
+  - Personalized login page with dynamic content.
+  - Data refresh button for real-time Spotify sync.
 
 ---
 
 ## 📊 Data Processing & Insights
 
-This app does more than display Spotify data — it transforms it into meaningful insights. Key data components include:
+This app does more than display Spotify data — it transforms it into meaningful insights. Key components:
 
 - **ETL Process**:
   - Extracts top and recent track data using the Spotify Web API.
-  - Transforms data by cleaning, validating, and enhancing with genre metadata.
-  - Loads structured results into a local SQLite database.
+  - Transforms with genre metadata.
+  - Loads results into SQLite database.
 
-- **Data Enrichment & Cleaning**:
+- **Data Enrichment**:
   - Normalizes and deduplicates track data.
-  - Supplements incomplete results with recently played tracks.
-  - Uses Spotify artist metadata to enhance each entry with genre classification.
+  - Supplements with recent plays if needed.
+  - Uses artist metadata to enrich with genre.
 
 - **Visualization**:
-  - Utilizes Pandas and Matplotlib to create readable tables and genre pie charts.
-  - Categorizes listening behavior across short, medium, and long term periods.
+  - Matplotlib for pie charts and Plotly for interactive bar charts.
+  - Categorizes listening behavior over multiple time periods.
 
-- **Recommendation System**:
-  - Uses Spotify’s recommendation engine with validated top tracks as seeds.
-  - Falls back gracefully to recent tracks and direct Spotify links if needed.
+- **Recommendation Engine**:
+  - Uses Spotify’s API with top tracks as seeds.
+  - Provides clickable excerpts and Spotify preview links.
 
 ---
 
@@ -59,10 +62,11 @@ This app does more than display Spotify data — it transforms it into meaningfu
 
 - Python 3.12+
 - Streamlit
-- Spotipy (Spotify Web API client)
+- Spotipy
 - SQLite
 - Matplotlib
 - Pandas
+- Plotly
 - `python-dotenv`
 
 ---
@@ -88,14 +92,16 @@ pip install -r requirements.txt
 
 ### 4. Set up Spotify Developer App
 - Go to [Spotify Developer Dashboard](https://developer.spotify.com/dashboard)
-- Create an app and get your `Client ID`, `Client Secret`, and `Redirect URI`
-- For **local development**, create a `.env` file:
+- Create an app and get your Client ID, Secret, and Redirect URI
+
+- For local development, create a `.env` file:
 ```env
 SPOTIPY_CLIENT_ID=your_client_id
 SPOTIPY_CLIENT_SECRET=your_client_secret
-SPOTIPY_REDIRECT_URI=http://localhost:8888/callback
+SPOTIPY_REDIRECT_URI=http://localhost:8501
 ```
-- For **Streamlit Cloud**, go to `⚙️ Settings > Secrets` and add:
+
+- For Streamlit Cloud, go to `⚙️ Settings > Secrets` and add:
 ```toml
 [spotify]
 SPOTIPY_CLIENT_ID="your_client_id"
