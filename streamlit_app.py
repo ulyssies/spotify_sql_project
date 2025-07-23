@@ -1,12 +1,4 @@
-import os
 import streamlit as st
-
-# Only clear the old DB once per session:
-if "db_cleared" not in st.session_state:
-    if os.path.exists("spotify_data.db"):
-        os.remove("spotify_data.db")
-    st.session_state.db_cleared = True
-
 import sqlite3
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -83,6 +75,8 @@ if st.session_state.sp is None:
 
 # Logged in
 sp = st.session_state.sp
+username = st.session_state.username
+display_name = st.session_state.display_name
 
 # Term selection
 term_options = {
@@ -96,15 +90,15 @@ term = term_options[term_label]
 # Button to load data
 if st.button("🔄 Load My Spotify Data"):
     with st.spinner("Fetching your Spotify data..."):
-        # 1) Re-fetch the current Spotify user
-        user = sp.current_user()
-        st.session_state.username = user["id"]
-        st.session_state.display_name = user.get("display_name", "User")
+        # 1) Re-fetch the current Spotify user (so it's never stale)
+        user = st.session_state.sp.current_user()
+        st.session_state.username = user["id"]                         # DB key
+        st.session_state.display_name = user.get("display_name", "User")  # UI
 
-        # 2) Extract & store their top tracks
-        extract_and_store_top_tracks(sp, st.session_state.username)
+        # 2) Extract & store *their* top tracks
+        extract_and_store_top_tracks(st.session_state.sp, st.session_state.username)
 
-        # 3) Query only their data
+        # 3) Pull only *their* data for the selected term
         conn = sqlite3.connect("spotify_data.db")
         st.session_state.df = pd.read_sql_query(
             "SELECT track_name, artist_name, genre "
@@ -115,9 +109,10 @@ if st.button("🔄 Load My Spotify Data"):
             params=(term, st.session_state.username)
         )
         conn.close()
+
         st.session_state.data_loaded = True
 
-    # 4) Success & greeting
+    # 4) Show success + greeting with *their* display name
     st.success(f"✅ Data loaded for {st.session_state.display_name}!")
     st.header(f"👋 Welcome, {st.session_state.display_name}!")
 
@@ -135,23 +130,30 @@ if st.session_state.data_loaded and not st.session_state.df.empty:
             "artist_name": "Artist"
         })
         st.dataframe(df_display, use_container_width=True, hide_index=True)
+
         st.markdown("---")
         st.subheader("💡 Suggested Songs Based on Your Top Tracks")
         suggestions = get_song_suggestions(term, sp)
+
         if suggestions:
             for s in suggestions:
-                name, artist, excerpt = s["track"], s["artist"], s["excerpt"]
-                img, url = s.get("image", ""), s.get("url", "")
-                col1, col2 = st.columns([1, 6])
-                with col1:
-                    if img:
-                        st.image(img, width=96)
-                    else:
-                        st.markdown("🎵")
-                with col2:
-                    st.markdown(f"**{name}**  ")
-                    st.markdown(f"*by {artist}*  ")
-                    st.markdown(f"💬 [{name} by {artist} — Listen on Spotify]({url})")
+                name = s["track"]
+                artist = s["artist"]
+                excerpt = s["excerpt"]
+                image_url = s.get("image", "")
+                url = s.get("url", "")
+
+                with st.container():
+                    col1, col2 = st.columns([1, 6])
+                    with col1:
+                        if image_url:
+                            st.image(image_url, width=96)
+                        else:
+                            st.markdown("🎵")
+                    with col2:
+                        st.markdown(f"**{name}**  ")
+                        st.markdown(f"*by {artist}*  ")
+                        st.markdown(f"💬 [{name} by {artist} — Listen on Spotify]({url})")
                 st.markdown("---")
         else:
             st.info("No song suggestions available. Try refreshing your data.")
@@ -162,44 +164,54 @@ if st.session_state.data_loaded and not st.session_state.df.empty:
         for g in df["genre"]:
             if g and g != "Unknown":
                 genres += [x.strip() for x in g.split(',') if x.strip()]
-        counts = Counter(genres)
-        total = sum(counts.values())
-        gdf = pd.DataFrame(counts.items(), columns=["Genre", "Count"])
-        gdf["Pct"] = gdf["Count"] / total * 100
-        gdf = gdf.sort_values("Count", ascending=False).reset_index(drop=True)
-        if not gdf.empty:
+        genre_counts = Counter(genres)
+        total = sum(genre_counts.values())
+        genre_df = pd.DataFrame(genre_counts.items(), columns=["Genre", "Count"])
+        genre_df["Percentage"] = genre_df["Count"] / total * 100
+        genre_df = genre_df.sort_values("Count", ascending=False).reset_index(drop=True)
+
+        if not genre_df.empty:
             fig = go.Figure(go.Bar(
-                x=gdf["Genre"], y=gdf["Pct"],
-                text=gdf["Pct"].apply(lambda x: f"{x:.1f}%"),
-                textposition="auto", marker_color="rgb(30,215,96)"
+                x=genre_df["Genre"],
+                y=genre_df["Percentage"],
+                text=genre_df["Percentage"].apply(lambda x: f"{x:.1f}%"),
+                textposition='auto',
+                marker_color='rgb(30,215,96)'
             ))
             fig.update_layout(
-                yaxis_title="Percentage (%)", xaxis_title="Genre",
-                title=f"Genre Breakdown - {term_label}", height=500
+                yaxis_title="Percentage (%)",
+                xaxis_title="Genre",
+                title=f"Genre Breakdown - {term_label}",
+                height=500
             )
             st.plotly_chart(fig, use_container_width=True)
+
             if term != "long_term":
                 long_df = pd.read_sql_query(
                     "SELECT genre FROM top_tracks WHERE genre != 'Unknown' AND term = 'long_term' AND username = ?",
-                    sqlite3.connect("spotify_data.db"), params=(st.session_state.username,)
+                    sqlite3.connect("spotify_data.db"),
+                    params=(username,)
                 )
-                lg = []
+                long_genres = []
                 for g in long_df["genre"]:
-                    lg += [x.strip() for x in g.split(",") if x.strip()]
-                lc = Counter(lg)
-                lt = sum(lc.values())
-                lpct = {k: v/lt*100 for k, v in lc.items()}
-                changes = []
-                for genre in gdf["Genre"]:
-                    cur = gdf[gdf["Genre"] == genre]["Pct"].values[0]
-                    past = lpct.get(genre, 0)
-                    d = cur - past
-                    sym = "🔺" if d > 0 else ("🔻" if d < 0 else "➖")
-                    changes.append(f"{sym} {genre}: {d:+.1f}%")
+                    long_genres += [x.strip() for x in g.split(',') if x.strip()]
+                long_counts = Counter(long_genres)
+                long_total = sum(long_counts.values())
+                long_pct = {k: v / long_total * 100 for k, v in long_counts.items()}
+
+                change_summary = []
+                for genre in genre_df["Genre"]:
+                    current = genre_df[genre_df["Genre"] == genre]["Percentage"].values[0]
+                    past = long_pct.get(genre, 0)
+                    delta = current - past
+                    symbol = "🔺" if delta > 0 else ("🔻" if delta < 0 else "➖")
+                    change_summary.append(f"{symbol} {genre}: {delta:+.1f}%")
+
                 st.markdown("**Genre Change Compared to All Time:**")
-                for c in changes:
-                    st.markdown(f"- {c}")
+                for change in change_summary:
+                    st.markdown(f"- {change}")
         else:
             st.info("No genre data available for this term.")
 else:
-    st.info("Click '🔄 Load My Spotify Data' to view your personalized stats.")
+    if not st.session_state.data_loaded:
+        st.info("Click '🔄 Load My Spotify Data' to view your personalized stats.")
