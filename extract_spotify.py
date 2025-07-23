@@ -1,8 +1,6 @@
 import sqlite3
 import time
 
-# Updated to accept a username parameter and store per-user data
-
 def extract_and_store_top_tracks(sp, username):
     conn = sqlite3.connect("spotify_data.db")
     cursor = conn.cursor()
