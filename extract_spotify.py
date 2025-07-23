@@ -1,4 +1,3 @@
-
 import sqlite3
 import time
 
@@ -7,7 +6,7 @@ def extract_and_store_top_tracks(sp, username):
     cursor = conn.cursor()
 
     # Create user-scoped table if missing
-    cursor.execute('''
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS top_tracks (
             username    TEXT,
             track_id    TEXT,
@@ -18,63 +17,64 @@ def extract_and_store_top_tracks(sp, username):
             play_count  INTEGER,
             PRIMARY KEY (username, track_id, term)
         )
-    ''')
+    """)
     conn.commit()
 
     def get_artist_genres(artist_id):
         try:
-            artist = sp.artist(artist_id)
-            return ', '.join(artist.get('genres', [])) or 'Unknown'
+            art = sp.artist(artist_id)
+            return ', '.join(art.get('genres', [])) or 'Unknown'
         except:
             return 'Unknown'
 
     def insert_for_term(term):
-        results = sp.current_user_top_tracks(limit=50, time_range=term)
-        items = results.get('items', [])
-        seen, count = set(), 0
+        seen = set()
+        count = 0
 
-        for item in items:
+        # first, top tracks
+        for item in sp.current_user_top_tracks(limit=50, time_range=term).get("items", []):
             if count >= 25: break
-            tid = item['id']
+            tid = item["id"]
             if tid in seen: continue
             seen.add(tid)
-            cursor.execute('''
+            cursor.execute("""
                 INSERT OR REPLACE INTO top_tracks
                 (username, track_id, track_name, artist_name, genre, term, play_count)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
-            ''', (
-                username, tid, item['name'],
-                item['artists'][0]['name'],
-                get_artist_genres(item['artists'][0]['id']),
+            """, (
+                username, tid,
+                item["name"],
+                item["artists"][0]["name"],
+                get_artist_genres(item["artists"][0]["id"]),
                 term, count+1
             ))
             count += 1
 
+        # then fill with recently played if needed
         if count < 25:
-            recent = sp.current_user_recently_played(limit=50)
-            for r in recent.get('items', []):
-                tid = r['track']['id']
+            for rec in sp.current_user_recently_played(limit=50).get("items", []):
+                tid = rec["track"]["id"]
+                if count >= 25: break
                 if tid in seen: continue
                 seen.add(tid)
-                cursor.execute('''
+                cursor.execute("""
                     INSERT OR REPLACE INTO top_tracks
                     (username, track_id, track_name, artist_name, genre, term, play_count)
                     VALUES (?, ?, ?, ?, ?, ?, ?)
-                ''', (
+                """, (
                     username, tid,
-                    r['track']['name'],
-                    r['track']['artists'][0]['name'],
-                    get_artist_genres(r['track']['artists'][0]['id']),
+                    rec["track"]["name"],
+                    rec["track"]["artists"][0]["name"],
+                    get_artist_genres(rec["track"]["artists"][0]["id"]),
                     term, count+1
                 ))
                 count += 1
-                if count >= 25: break
 
         conn.commit()
 
-    for t in ['short_term', 'medium_term', 'long_term']:
+    for t in ["short_term","medium_term","long_term"]:
         insert_for_term(t)
         time.sleep(1.5)
 
     conn.close()
-    print("✅ Data extraction complete for user", username)
+    print(f"✅ Data extraction complete for user {username}")
