@@ -34,7 +34,7 @@ if st.session_state.sp is None:
         cache_path=None,
         show_dialog=True
     )
-    params = st.query_params
+    params = st.experimental_get_query_params()
     if "code" in params:
         try:
             code = params["code"][0]
@@ -44,6 +44,7 @@ if st.session_state.sp is None:
             st.session_state.sp = sp
             st.session_state.username = user["id"]
             st.session_state.display_name = user.get("display_name", "User")
+            # clear query params
             st.experimental_set_query_params()
             st.experimental_rerun()
         except Exception as e:
@@ -140,7 +141,7 @@ if st.session_state.data_loaded and not st.session_state.df.empty:
         if suggestions:
             for s in suggestions:
                 name, artist, excerpt = s["track"], s["artist"], s["excerpt"]
-                img, url = s.get("image",""), s.get("url",")")
+                img, url = s.get("image",""), s.get("url","")
                 col1, col2 = st.columns([1,6])
                 with col1:
                     if img:
