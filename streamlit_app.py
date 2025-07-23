@@ -77,20 +77,22 @@ if st.session_state.sp is None:
 # Post-login
 sp = st.session_state.sp
 username = st.session_state.username
-st.header(f"👋 Welcome, {username}!")
+if username:
+    st.header(f"👋 Welcome, {username}!")
 
 term_options = {
     "Last 4 Weeks": "short_term",
     "Last 6 Months": "medium_term",
     "All Time": "long_term"
 }
-
-st.markdown("### ⏳ Reached term selector")
 term_label = st.selectbox("Top Tracks for:", list(term_options.keys()))
 term = term_options[term_label]
 
 if st.button("🔄 Load My Spotify Data"):
     with st.spinner("Fetching your Spotify data..."):
+        user = sp.current_user()
+        st.session_state.username = user.get("display_name", "Your")
+        username = st.session_state.username
         extract_and_store_top_tracks(sp, username)
         conn = sqlite3.connect("spotify_data.db")
         st.session_state.df = pd.read_sql_query(
@@ -100,6 +102,15 @@ if st.button("🔄 Load My Spotify Data"):
         conn.close()
         st.session_state.data_loaded = True
     st.success("✅ Data loaded! Refresh the chart below.")
+
+# Always reload df based on selected term
+if st.session_state.data_loaded:
+    conn = sqlite3.connect("spotify_data.db")
+    st.session_state.df = pd.read_sql_query(
+        "SELECT track_name, artist_name, genre FROM top_tracks WHERE term = ? AND username = ? ORDER BY play_count ASC",
+        conn, params=(term, st.session_state.username)
+    )
+    conn.close()
 
 if st.session_state.data_loaded and not st.session_state.df.empty:
     df = st.session_state.df
@@ -189,17 +200,11 @@ if st.session_state.data_loaded and not st.session_state.df.empty:
                     past = long_pct.get(genre, 0)
                     delta = current - past
                     symbol = "🔺" if delta > 0 else ("🔻" if delta < 0 else "➖")
-                    try:
-                        change_summary.append(f"{symbol} {genre}: {delta:+.1f}%")
-                    except UnicodeEncodeError:
-                        change_summary.append(f"{genre}: {delta:+.1f}%")
+                    change_summary.append(f"{symbol} {genre}: {delta:+.1f}%")
 
                 st.markdown("**Genre Change Compared to All Time:**")
                 for change in change_summary:
-                    try:
-                        st.markdown(f"- {change}")
-                    except UnicodeEncodeError:
-                        st.markdown(f"- {change.encode('ascii', 'ignore').decode()}")
+                    st.markdown(f"- {change}")
         else:
             st.info("No genre data available for this term.")
 else:
