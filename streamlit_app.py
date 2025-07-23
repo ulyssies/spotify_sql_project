@@ -20,6 +20,9 @@ if "sp" not in st.session_state:
 if "data_loaded" not in st.session_state:
     st.session_state.data_loaded = False
 
+if "df" not in st.session_state:
+    st.session_state.df = pd.DataFrame()
+
 if "username" not in st.session_state:
     st.session_state.username = None
 
@@ -55,7 +58,7 @@ if st.session_state.sp is None:
             <div style='background-color: rgba(0,0,0,0.6); padding: 2rem; border-radius: 1rem; text-align: center;'>
                 <h1 style='font-size: 2.5rem;'>
                     <span style='font-weight: bold;'>
-                        🎵 SpotYourVibe
+                        🎧 SpotYourVibe
                     </span>
                 </h1>
                 <p>This is a personalized Spotify stats visualizer.<br>Log in to explore your top tracks, genres, and discover new music.</p>
@@ -72,33 +75,34 @@ if st.session_state.sp is None:
         st.stop()
 
 # Post-login
+sp = st.session_state.sp
+username = st.session_state.username
+st.header(f"👋 Welcome, {username}!")
+
 term_options = {
     "Last 4 Weeks": "short_term",
     "Last 6 Months": "medium_term",
     "All Time": "long_term"
 }
+
+st.markdown("### ⏳ Reached term selector")
 term_label = st.selectbox("Top Tracks for:", list(term_options.keys()))
 term = term_options[term_label]
-
-sp = st.session_state.sp
-username = st.session_state.username
 
 if st.button("🔄 Load My Spotify Data"):
     with st.spinner("Fetching your Spotify data..."):
         extract_and_store_top_tracks(sp, username)
+        conn = sqlite3.connect("spotify_data.db")
+        st.session_state.df = pd.read_sql_query(
+            "SELECT track_name, artist_name, genre FROM top_tracks WHERE term = ? AND username = ? ORDER BY play_count ASC",
+            conn, params=(term, username)
+        )
+        conn.close()
         st.session_state.data_loaded = True
     st.success("✅ Data loaded! Refresh the chart below.")
 
-if st.session_state.data_loaded:
-    conn = sqlite3.connect("spotify_data.db")
-    df = pd.read_sql_query(
-        "SELECT track_name, artist_name, genre FROM top_tracks WHERE term = ? AND username = ? ORDER BY play_count ASC",
-        conn, params=(term, username)
-    )
-    conn.close()
-
-    st.header(f"👋 Welcome, {username}!")
-
+if st.session_state.data_loaded and not st.session_state.df.empty:
+    df = st.session_state.df
     tab1, tab2 = st.tabs(["🎵 Top Tracks", "📊 Genre Chart"])
 
     with tab1:
@@ -184,12 +188,18 @@ if st.session_state.data_loaded:
                     current = genre_df[genre_df["Genre"] == genre]["Percentage"].values[0]
                     past = long_pct.get(genre, 0)
                     delta = current - past
-                    symbol = "🔺" if delta > 0 else ("\ud83d\udd3b" if delta < 0 else "➖")
-                    change_summary.append(f"{symbol} {genre}: {delta:+.1f}%")
+                    symbol = "🔺" if delta > 0 else ("🔻" if delta < 0 else "➖")
+                    try:
+                        change_summary.append(f"{symbol} {genre}: {delta:+.1f}%")
+                    except UnicodeEncodeError:
+                        change_summary.append(f"{genre}: {delta:+.1f}%")
 
                 st.markdown("**Genre Change Compared to All Time:**")
                 for change in change_summary:
-                    st.markdown(f"- {change}")
+                    try:
+                        st.markdown(f"- {change}")
+                    except UnicodeEncodeError:
+                        st.markdown(f"- {change.encode('ascii', 'ignore').decode()}")
         else:
             st.info("No genre data available for this term.")
 else:
