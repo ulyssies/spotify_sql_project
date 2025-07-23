@@ -76,9 +76,10 @@ if st.session_state.sp is None:
 
 # Post-login
 sp = st.session_state.sp
-username = st.session_state.username
-if username:
-    st.header(f"👋 Welcome, {username}!")
+
+if st.session_state.data_loaded and st.session_state.username:
+    username = st.session_state.username
+    st.header(f"👋 Welcome, {username}!"
 
 term_options = {
     "Last 4 Weeks": "short_term",
