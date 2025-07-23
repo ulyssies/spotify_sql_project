@@ -9,12 +9,20 @@ import plotly.graph_objects as go
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 from secrets_handler import SPOTIPY_CLIENT_ID, SPOTIPY_CLIENT_SECRET, SPOTIPY_REDIRECT_URI
+import os
 
 # Set page config
 st.set_page_config(page_title="Spotify Statistics Visualizer", layout="centered")
 
 if "sp" not in st.session_state:
     st.session_state.sp = None
+
+# --- Ensure database and tables exist ---
+def ensure_database_exists(sp, username):
+    db_exists = os.path.exists("spotify_data.db")
+    if not db_exists:
+        with st.spinner("Initializing your database..."):
+            extract_and_store_top_tracks(sp, username)
 
 # Spotify login
 if st.session_state.sp is None:
@@ -68,6 +76,9 @@ if st.session_state.sp is None:
 sp = st.session_state.sp
 username = st.session_state.username
 st.header(f"Welcome, {username}!")
+
+# Ensure DB is created before querying
+ensure_database_exists(sp, username)
 
 # Load user data
 if st.button("🔄 Load My Spotify Data"):
