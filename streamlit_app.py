@@ -34,50 +34,46 @@ if "display_name" not in st.session_state:
 
 # Spotify login
 if st.session_state.sp is None:
-    auth_manager = SpotifyOAuth(
-        client_id=SPOTIPY_CLIENT_ID,
-        client_secret=SPOTIPY_CLIENT_SECRET,
-        redirect_uri=SPOTIPY_REDIRECT_URI,
-        scope="user-read-private user-top-read user-read-recently-played",
-        cache_path=None,
-        show_dialog=True
-    )
+auth_manager = SpotifyOAuth(
+    client_id=SPOTIPY_CLIENT_ID,
+    client_secret=SPOTIPY_CLIENT_SECRET,
+    redirect_uri=SPOTIPY_REDIRECT_URI,
+    scope="user-read-private user-top-read user-read-recently-played",
+    cache_path=None,
+    show_dialog=True,
+)
 
-    query_params = st.query_params
-    if "code" in query_params:
+if st.session_state.sp is None:
+    params = st.experimental_get_query_params()
+
+    if "code" in params:
         try:
-            code = query_params["code"][0]
-            token_info = auth_manager.get_access_token(code, as_dict=False)
+            # exchange code for token
+            auth_manager.get_access_token(params["code"][0], as_dict=False)
             sp = spotipy.Spotify(auth_manager=auth_manager)
             user = sp.current_user()
+
+            # store in session
             st.session_state.sp = sp
-            st.session_state.username = user["id"]
+            st.session_state.username     = user["id"]
             st.session_state.display_name = user.get("display_name", "User")
-            st.query_params.clear()
-            st.rerun()
+
+            # clear `?code=` from URL and restart
+            st.experimental_set_query_params()
+            st.experimental_rerun()
+
         except Exception as e:
             st.error(f"Login failed: {e}")
             st.stop()
+
     else:
-        st.markdown("<h1 style='text-align: center;'>Spotify Statistics Visualizer</h1>", unsafe_allow_html=True)
+        # show login button
+        login_url = auth_manager.get_authorize_url()
         st.markdown(
-            f"""
-            <div style='background-color: rgba(0,0,0,0.6); padding: 2rem; border-radius: 1rem; text-align: center;'>
-                <h1 style='font-size: 2.5rem;'>
-                    <span style='font-weight: bold;'>
-                        🎧 SpotYourVibe
-                    </span>
-                </h1>
-                <p>This is a personalized Spotify stats visualizer.<br>Log in to explore your top tracks, genres, and discover new music.</p>
-                <a href='{auth_manager.get_authorize_url()}'>
-                    <button style='margin-top: 1rem; background-color: #1DB954; border: none; color: white; padding: 0.75rem 1.5rem; border-radius: 30px; font-weight: bold; font-size: 1rem;'>
-                        🔐 Log in with Spotify
-                    </button>
-                </a>
-                <p style='margin-top: 1rem; font-size: 0.85rem; color: gray;'>🔒 Spotify login required — no account data is stored.</p>
-            </div>
-            """,
-            unsafe_allow_html=True
+            "<h1 style='text-align:center;'><a href='"
+            + login_url +
+            "'>🔐 Log in with Spotify</a></h1>",
+            unsafe_allow_html=True,
         )
         st.stop()
 
