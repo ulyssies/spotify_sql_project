@@ -50,7 +50,7 @@ if "token_info" not in st.session_state:
             st.session_state.display_name = user.get("display_name", "User")
             # clear code param so this block doesn't re-run
             st.query_params = {}
-        except Exception as e:
+            st.rerun()except Exception as e:
             st.error(f"Login failed: {e}")
             st.stop()
     else:
