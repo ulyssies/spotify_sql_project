@@ -1,21 +1,25 @@
 import sqlite3
 import time
 
+# Updated to accept a username parameter and store per-user data
+
 def extract_and_store_top_tracks(sp, username):
     conn = sqlite3.connect("spotify_data.db")
     cursor = conn.cursor()
 
+    # Drop the table to refresh data for all users
     cursor.execute("DROP TABLE IF EXISTS top_tracks")
+    # Create table with a username column
     cursor.execute('''
         CREATE TABLE top_tracks (
+            username TEXT,
             track_id TEXT,
             track_name TEXT,
             artist_name TEXT,
             genre TEXT,
             term TEXT,
             play_count INTEGER,
-            username TEXT,
-            PRIMARY KEY (track_id, term, username)
+            PRIMARY KEY (username, track_id, term)
         )
     ''')
     conn.commit()
@@ -28,7 +32,7 @@ def extract_and_store_top_tracks(sp, username):
             return 'Unknown'
 
     def insert_top_tracks_for_term(term):
-        print(f"Fetching top tracks for {term}...")
+        print(f"Fetching top tracks for {term} for user {username}...")
         results = sp.current_user_top_tracks(limit=50, time_range=term)
         items = results.get('items', [])
         seen_ids = set()
@@ -40,15 +44,15 @@ def extract_and_store_top_tracks(sp, username):
             tid = item['id']
             seen_ids.add(tid)
             cursor.execute('''
-                INSERT INTO top_tracks VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT OR REPLACE INTO top_tracks VALUES (?, ?, ?, ?, ?, ?, ?)
             ''', (
+                username,
                 tid,
                 item['name'],
                 item['artists'][0]['name'],
                 get_artist_genres(item['artists'][0]['id']),
                 term,
-                inserted + 1,
-                username
+                inserted + 1
             ))
             inserted += 1
 
@@ -61,23 +65,24 @@ def extract_and_store_top_tracks(sp, username):
                     continue
                 seen_ids.add(tid)
                 cursor.execute('''
-                    INSERT INTO top_tracks VALUES (?, ?, ?, ?, ?, ?, ?)
+                    INSERT OR REPLACE INTO top_tracks VALUES (?, ?, ?, ?, ?, ?, ?)
                 ''', (
+                    username,
                     tid,
                     r['track']['name'],
                     r['track']['artists'][0]['name'],
                     get_artist_genres(r['track']['artists'][0]['id']),
                     term,
-                    inserted + 1,
-                    username
+                    inserted + 1
                 ))
                 inserted += 1
                 if inserted >= 25:
                     break
         conn.commit()
 
-    for term in ['short_term', 'medium_term', 'long_term']:
-        insert_top_tracks_for_term(term)
+    # Populate for each term
+    for t in ['short_term', 'medium_term', 'long_term']:
+        insert_top_tracks_for_term(t)
         time.sleep(1.5)
 
     conn.close()
