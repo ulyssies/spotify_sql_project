@@ -1,3 +1,4 @@
+
 import streamlit as st
 import sqlite3
 import pandas as pd
@@ -10,22 +11,17 @@ import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 from secrets_handler import SPOTIPY_CLIENT_ID, SPOTIPY_CLIENT_SECRET, SPOTIPY_REDIRECT_URI
 
-# Set page config
 st.set_page_config(page_title="Spotify Statistics Visualizer", layout="centered")
 
-# Initialize session state
+# Session state initialization
 if "sp" not in st.session_state:
     st.session_state.sp = None
-
 if "data_loaded" not in st.session_state:
     st.session_state.data_loaded = False
-
 if "df" not in st.session_state:
     st.session_state.df = pd.DataFrame()
-
 if "username" not in st.session_state:
     st.session_state.username = None
-
 if "display_name" not in st.session_state:
     st.session_state.display_name = None
 
@@ -48,8 +44,8 @@ if st.session_state.sp is None:
             sp = spotipy.Spotify(auth_manager=auth_manager)
             user = sp.current_user()
             st.session_state.sp = sp
-            st.session_state.username = user["id"]  # Unique ID for database
-            st.session_state.display_name = user.get("display_name", "User")  # Friendly display name
+            st.session_state.username = user["id"]
+            st.session_state.display_name = user.get("display_name", "User")
             st.query_params.clear()
             st.rerun()
         except Exception as e:
@@ -58,7 +54,7 @@ if st.session_state.sp is None:
     else:
         st.markdown("<h1 style='text-align: center;'>Spotify Statistics Visualizer</h1>", unsafe_allow_html=True)
         st.markdown(
-            """
+            f"""
             <div style='background-color: rgba(0,0,0,0.6); padding: 2rem; border-radius: 1rem; text-align: center;'>
                 <h1 style='font-size: 2.5rem;'>
                     <span style='font-weight: bold;'>
@@ -66,24 +62,24 @@ if st.session_state.sp is None:
                     </span>
                 </h1>
                 <p>This is a personalized Spotify stats visualizer.<br>Log in to explore your top tracks, genres, and discover new music.</p>
-                <a href='{}'>
+                <a href='{auth_manager.get_authorize_url()}'>
                     <button style='margin-top: 1rem; background-color: #1DB954; border: none; color: white; padding: 0.75rem 1.5rem; border-radius: 30px; font-weight: bold; font-size: 1rem;'>
                         🔐 Log in with Spotify
                     </button>
                 </a>
                 <p style='margin-top: 1rem; font-size: 0.85rem; color: gray;'>🔒 Spotify login required — no account data is stored.</p>
             </div>
-            """.format(auth_manager.get_authorize_url()),
+            """,
             unsafe_allow_html=True
         )
         st.stop()
 
-# Post-login
+# Logged in
 sp = st.session_state.sp
 username = st.session_state.username
-if st.session_state.display_name:
-    st.header(f"👋 Welcome, {st.session_state.display_name}!")
+display_name = st.session_state.display_name
 
+# Only show display name after pressing "Load My Spotify Data"
 term_options = {
     "Last 4 Weeks": "short_term",
     "Last 6 Months": "medium_term",
@@ -102,7 +98,8 @@ if st.button("🔄 Load My Spotify Data"):
         )
         conn.close()
         st.session_state.data_loaded = True
-    st.success("✅ Data loaded! Refresh the chart below.")
+    st.success(f"✅ Data loaded for {display_name}!")
+    st.header(f"👋 Welcome, {display_name}!")
 
 if st.session_state.data_loaded and not st.session_state.df.empty:
     df = st.session_state.df
