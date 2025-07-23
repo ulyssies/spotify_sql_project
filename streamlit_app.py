@@ -26,6 +26,9 @@ if "df" not in st.session_state:
 if "username" not in st.session_state:
     st.session_state.username = None
 
+if "display_name" not in st.session_state:
+    st.session_state.display_name = None
+
 # Spotify login
 if st.session_state.sp is None:
     auth_manager = SpotifyOAuth(
@@ -45,7 +48,8 @@ if st.session_state.sp is None:
             sp = spotipy.Spotify(auth_manager=auth_manager)
             user = sp.current_user()
             st.session_state.sp = sp
-            st.session_state.username = user.get("display_name", "Your")
+            st.session_state.username = user["id"]  # Unique ID for database
+            st.session_state.display_name = user.get("display_name", "User")  # Friendly display name
             st.query_params.clear()
             st.rerun()
         except Exception as e:
@@ -76,10 +80,9 @@ if st.session_state.sp is None:
 
 # Post-login
 sp = st.session_state.sp
-
-if st.session_state.data_loaded and st.session_state.username:
-    username = st.session_state.username
-    st.header(f"👋 Welcome, {username}!")
+username = st.session_state.username
+if st.session_state.display_name:
+    st.header(f"👋 Welcome, {st.session_state.display_name}!")
 
 term_options = {
     "Last 4 Weeks": "short_term",
@@ -91,9 +94,6 @@ term = term_options[term_label]
 
 if st.button("🔄 Load My Spotify Data"):
     with st.spinner("Fetching your Spotify data..."):
-        user = sp.current_user()
-        st.session_state.username = user.get("display_name", "Your")
-        username = st.session_state.username
         extract_and_store_top_tracks(sp, username)
         conn = sqlite3.connect("spotify_data.db")
         st.session_state.df = pd.read_sql_query(
@@ -103,15 +103,6 @@ if st.button("🔄 Load My Spotify Data"):
         conn.close()
         st.session_state.data_loaded = True
     st.success("✅ Data loaded! Refresh the chart below.")
-
-# Always reload df based on selected term
-if st.session_state.data_loaded:
-    conn = sqlite3.connect("spotify_data.db")
-    st.session_state.df = pd.read_sql_query(
-        "SELECT track_name, artist_name, genre FROM top_tracks WHERE term = ? AND username = ? ORDER BY play_count ASC",
-        conn, params=(term, st.session_state.username)
-    )
-    conn.close()
 
 if st.session_state.data_loaded and not st.session_state.df.empty:
     df = st.session_state.df
