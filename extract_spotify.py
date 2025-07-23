@@ -1,11 +1,12 @@
+# extract_spotify.py
+
 import sqlite3
 import time
 
-def extract_and_store_top_tracks(sp, username):
-    conn = sqlite3.connect("spotify_data.db")
+def extract_and_store_top_tracks(sp, username, db_path="spotify_data.db"):
+    conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
 
-    # Create user-scoped table if missing
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS top_tracks (
             username    TEXT,
@@ -31,7 +32,7 @@ def extract_and_store_top_tracks(sp, username):
         seen = set()
         count = 0
 
-        # first, top tracks
+        # top tracks
         for item in sp.current_user_top_tracks(limit=50, time_range=term).get("items", []):
             if count >= 25: break
             tid = item["id"]
@@ -39,18 +40,19 @@ def extract_and_store_top_tracks(sp, username):
             seen.add(tid)
             cursor.execute("""
                 INSERT OR REPLACE INTO top_tracks
-                (username, track_id, track_name, artist_name, genre, term, play_count)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                  (username, track_id, track_name, artist_name, genre, term, play_count)
+                  VALUES (?, ?, ?, ?, ?, ?, ?)
             """, (
                 username, tid,
                 item["name"],
                 item["artists"][0]["name"],
                 get_artist_genres(item["artists"][0]["id"]),
-                term, count+1
+                term,
+                count + 1
             ))
             count += 1
 
-        # then fill with recently played if needed
+        # fill with recently played if under 25
         if count < 25:
             for rec in sp.current_user_recently_played(limit=50).get("items", []):
                 tid = rec["track"]["id"]
@@ -59,22 +61,23 @@ def extract_and_store_top_tracks(sp, username):
                 seen.add(tid)
                 cursor.execute("""
                     INSERT OR REPLACE INTO top_tracks
-                    (username, track_id, track_name, artist_name, genre, term, play_count)
+                      (username, track_id, track_name, artist_name, genre, term, play_count)
                     VALUES (?, ?, ?, ?, ?, ?, ?)
                 """, (
                     username, tid,
                     rec["track"]["name"],
                     rec["track"]["artists"][0]["name"],
                     get_artist_genres(rec["track"]["artists"][0]["id"]),
-                    term, count+1
+                    term,
+                    count + 1
                 ))
                 count += 1
 
         conn.commit()
 
-    for t in ["short_term","medium_term","long_term"]:
+    for t in ["short_term", "medium_term", "long_term"]:
         insert_for_term(t)
         time.sleep(1.5)
 
     conn.close()
-    print(f"✅ Data extraction complete for user {username}")
+    print(f"✅ Data extraction complete for {username}")
