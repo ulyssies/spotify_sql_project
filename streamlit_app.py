@@ -14,12 +14,7 @@ from secrets_handler import SPOTIPY_CLIENT_ID, SPOTIPY_CLIENT_SECRET, SPOTIPY_RE
 st.set_page_config(page_title="Spotify Statistics Visualizer", layout="centered")
 
 # Initialize session state defaults
-def init(defaults):
-    for k, v in defaults.items():
-        if k not in st.session_state:
-            st.session_state[k] = v
-
-init({
+for key, default in {
     'sp': None,
     'username': None,
     'display_name': None,
@@ -27,7 +22,9 @@ init({
     'data_loaded': False,
     'last_term': None,
     'oauth_complete': False
-})
+}.items():
+    if key not in st.session_state:
+        st.session_state[key] = default
 
 # OAuth manager setup
 auth_manager = SpotifyOAuth(
@@ -38,9 +35,9 @@ auth_manager = SpotifyOAuth(
     cache_path=None,
     show_dialog=True
 )
+params = st.query_params
 
 # Handle OAuth redirect
-params = st.query_params
 if not st.session_state.oauth_complete:
     if 'code' in params:
         try:
@@ -54,7 +51,7 @@ if not st.session_state.oauth_complete:
             st.session_state.oauth_complete = True
             # clear code param and rerun
             st.query_params = {}
-            st.experimental_rerun()
+            st.rerun()
         except Exception as e:
             st.error(f"Login failed: {e}")
             st.stop()
@@ -114,8 +111,7 @@ def load_user_data():
     conn = sqlite3.connect(db_file)
     df = pd.read_sql_query(
         "SELECT track_name, artist_name, genre FROM top_tracks WHERE term = ? AND username = ? ORDER BY play_count ASC",
-        conn,
-        params=(term, uid)
+        conn, params=(term, uid)
     )
     conn.close()
     st.session_state.df = df
@@ -131,7 +127,7 @@ if st.button("🔄 Load My Spotify Data"):
 # Display sections
 if st.session_state.data_loaded and not st.session_state.df.empty:
     df = st.session_state.df
-    tab1, tab2 = st.tabs(["🎵 Top Tracks", "📊 Genre Chart"])
+    tab1, tab2 = st.tabs(["🎵 Top Tracks","📊 Genre Chart"])
     with tab1:
         st.subheader(f"🎶 Top Tracks - {term_label}")
         disp = df.copy()
