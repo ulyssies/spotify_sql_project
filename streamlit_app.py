@@ -1,6 +1,12 @@
-
 import os
 import streamlit as st
+
+# Only clear the old DB once per session:
+if "db_cleared" not in st.session_state:
+    if os.path.exists("spotify_data.db"):
+        os.remove("spotify_data.db")
+    st.session_state.db_cleared = True
+
 import sqlite3
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -11,10 +17,6 @@ import plotly.graph_objects as go
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 from secrets_handler import SPOTIPY_CLIENT_ID, SPOTIPY_CLIENT_SECRET, SPOTIPY_REDIRECT_URI
-
-# Remove old, unpartitioned DB on startup
-if os.path.exists("spotify_data.db"):
-    os.remove("spotify_data.db")
 
 st.set_page_config(page_title="Spotify Statistics Visualizer", layout="centered")
 
@@ -81,6 +83,8 @@ if st.session_state.sp is None:
 
 # Logged in
 sp = st.session_state.sp
+
+# Term selection
 term_options = {
     "Last 4 Weeks": "short_term",
     "Last 6 Months": "medium_term",
@@ -103,12 +107,14 @@ if st.button("🔄 Load My Spotify Data"):
         # 3) Query only their data
         conn = sqlite3.connect("spotify_data.db")
         st.session_state.df = pd.read_sql_query(
-            "SELECT track_name, artist_name, genre FROM top_tracks WHERE term = ? AND username = ? ORDER BY play_count ASC",
+            "SELECT track_name, artist_name, genre "
+            "FROM top_tracks "
+            "WHERE term = ? AND username = ? "
+            "ORDER BY play_count ASC",
             conn,
             params=(term, st.session_state.username)
         )
         conn.close()
-
         st.session_state.data_loaded = True
 
     # 4) Success & greeting
@@ -188,7 +194,7 @@ if st.session_state.data_loaded and not st.session_state.df.empty:
                     cur = gdf[gdf["Genre"] == genre]["Pct"].values[0]
                     past = lpct.get(genre, 0)
                     d = cur - past
-                    sym = "🔺" if d>0 else ("🔻" if d<0 else "➖")
+                    sym = "🔺" if d > 0 else ("🔻" if d < 0 else "➖")
                     changes.append(f"{sym} {genre}: {d:+.1f}%")
                 st.markdown("**Genre Change Compared to All Time:**")
                 for c in changes:
