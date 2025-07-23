@@ -34,7 +34,7 @@ if st.session_state.sp is None:
         cache_path=None,
         show_dialog=True
     )
-    params = st.experimental_get_query_params()
+    params = st.query_params
     if "code" in params:
         try:
             code = params["code"][0]
@@ -44,9 +44,9 @@ if st.session_state.sp is None:
             st.session_state.sp = sp
             st.session_state.username = user["id"]
             st.session_state.display_name = user.get("display_name", "User")
-            # clear query params
-            st.experimental_set_query_params()
-            st.experimental_rerun()
+            # clear query params and rerun
+            st.query_params = {}
+            st.rerun()
         except Exception as e:
             st.error(f"Login failed: {e}")
             st.stop()
