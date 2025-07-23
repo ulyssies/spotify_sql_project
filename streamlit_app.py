@@ -26,32 +26,35 @@ for key, default in {
         st.session_state[key] = default
 
 # Spotify OAuth login
-if st.session_state.sp is None:
-    auth_manager = SpotifyOAuth(
-        client_id=SPOTIPY_CLIENT_ID,
-        client_secret=SPOTIPY_CLIENT_SECRET,
-        redirect_uri=SPOTIPY_REDIRECT_URI,
-        scope="user-read-private user-top-read user-read-recently-played",
-        cache_path=None,
-        show_dialog=True
-    )
-    params = st.query_params
+auth_manager = SpotifyOAuth(
+    client_id=SPOTIPY_CLIENT_ID,
+    client_secret=SPOTIPY_CLIENT_SECRET,
+    redirect_uri=SPOTIPY_REDIRECT_URI,
+    scope="user-read-private user-top-read user-read-recently-played",
+    cache_path=None,
+    show_dialog=True
+)
+params = st.query_params
+
+if "token_info" not in st.session_state:
+    # First-time OAuth: handle Spotify redirect
     if "code" in params:
         try:
             code = params["code"][0]
             auth_manager.get_access_token(code, as_dict=False)
             sp = spotipy.Spotify(auth_manager=auth_manager)
             user = sp.current_user()
+            st.session_state.token_info = True
             st.session_state.sp = sp
             st.session_state.username = user["id"]
             st.session_state.display_name = user.get("display_name", "User")
-            # clear query params and rerun
+            # clear code param so this block doesn't re-run
             st.query_params = {}
-            st.rerun()
         except Exception as e:
             st.error(f"Login failed: {e}")
             st.stop()
     else:
+        # show login prompt
         login_url = auth_manager.get_authorize_url()
         st.markdown("<h1 style='text-align:center;'>Spotify Statistics Visualizer</h1>", unsafe_allow_html=True)
         st.markdown(f"""
@@ -68,6 +71,10 @@ if st.session_state.sp is None:
 """, unsafe_allow_html=True)
         st.stop()
 
+# After login, sp is guaranteed
+sp = st.session_state.sp
+# After OAuth completed, clear out token_info if needed
+# Continue to render the rest of the dashboard
 # After login
 sp = st.session_state.sp
 st.header(f"👋 Welcome, {st.session_state.display_name}!")
