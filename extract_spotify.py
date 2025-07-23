@@ -4,9 +4,11 @@ import sqlite3
 import time
 
 def extract_and_store_top_tracks(sp, username, db_path="spotify_data.db"):
+    # connect to *exactly* the file you tell it
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
 
+    # create your multi‐user table if it doesn’t exist
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS top_tracks (
             username    TEXT,
@@ -23,8 +25,7 @@ def extract_and_store_top_tracks(sp, username, db_path="spotify_data.db"):
 
     def get_artist_genres(artist_id):
         try:
-            art = sp.artist(artist_id)
-            return ', '.join(art.get('genres', [])) or 'Unknown'
+            return ', '.join(sp.artist(artist_id).get('genres', [])) or 'Unknown'
         except:
             return 'Unknown'
 
@@ -32,7 +33,7 @@ def extract_and_store_top_tracks(sp, username, db_path="spotify_data.db"):
         seen = set()
         count = 0
 
-        # top tracks
+        # 1) pull top_tracks
         for item in sp.current_user_top_tracks(limit=50, time_range=term).get("items", []):
             if count >= 25: break
             tid = item["id"]
@@ -41,9 +42,10 @@ def extract_and_store_top_tracks(sp, username, db_path="spotify_data.db"):
             cursor.execute("""
                 INSERT OR REPLACE INTO top_tracks
                   (username, track_id, track_name, artist_name, genre, term, play_count)
-                  VALUES (?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
             """, (
-                username, tid,
+                username,
+                tid,
                 item["name"],
                 item["artists"][0]["name"],
                 get_artist_genres(item["artists"][0]["id"]),
@@ -52,11 +54,11 @@ def extract_and_store_top_tracks(sp, username, db_path="spotify_data.db"):
             ))
             count += 1
 
-        # fill with recently played if under 25
+        # 2) fill from recently played if under 25
         if count < 25:
             for rec in sp.current_user_recently_played(limit=50).get("items", []):
-                tid = rec["track"]["id"]
                 if count >= 25: break
+                tid = rec["track"]["id"]
                 if tid in seen: continue
                 seen.add(tid)
                 cursor.execute("""
@@ -64,7 +66,8 @@ def extract_and_store_top_tracks(sp, username, db_path="spotify_data.db"):
                       (username, track_id, track_name, artist_name, genre, term, play_count)
                     VALUES (?, ?, ?, ?, ?, ?, ?)
                 """, (
-                    username, tid,
+                    username,
+                    tid,
                     rec["track"]["name"],
                     rec["track"]["artists"][0]["name"],
                     get_artist_genres(rec["track"]["artists"][0]["id"]),
@@ -80,4 +83,4 @@ def extract_and_store_top_tracks(sp, username, db_path="spotify_data.db"):
         time.sleep(1.5)
 
     conn.close()
-    print(f"✅ Data extraction complete for {username}")
+    print(f"✅ Wrote top_tracks for {username} into {db_path}")
