@@ -10,9 +10,12 @@ import plotly.graph_objects as go
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 from secrets_handler import SPOTIPY_CLIENT_ID, SPOTIPY_CLIENT_SECRET, SPOTIPY_REDIRECT_URI
-from spotipy.exceptions import SpotifyException
 
 st.set_page_config(page_title="Spotify Statistics Visualizer", layout="centered")
+
+# Always clear Spotify token cache on fresh app start
+if os.path.exists(".cache"):
+    os.remove(".cache")
 
 # Session state initialization
 if "sp" not in st.session_state:
@@ -34,15 +37,22 @@ if st.session_state.sp is None:
         redirect_uri=SPOTIPY_REDIRECT_URI,
         scope="user-read-private user-top-read user-read-recently-played",
         cache_path=".cache",
+        show_dialog=True
     )
 
-    try:
-        sp = spotipy.Spotify(auth_manager=auth_manager)
-        user = sp.current_user()
-        st.session_state.sp = sp
-        st.session_state.username = user["id"]
-        st.session_state.display_name = user.get("display_name", "User")
-    except SpotifyException:
+    token_info = auth_manager.get_cached_token()
+
+    if token_info:
+        try:
+            sp = spotipy.Spotify(auth_manager=auth_manager)
+            user = sp.current_user()
+            st.session_state.sp = sp
+            st.session_state.username = user["id"]
+            st.session_state.display_name = user.get("display_name", "User")
+        except:
+            st.error("Spotify login failed. Please refresh and try again.")
+            st.stop()
+    else:
         auth_url = auth_manager.get_authorize_url()
         st.markdown("<h1 style='text-align: center;'>Spotify Statistics Visualizer</h1>", unsafe_allow_html=True)
         st.markdown(
@@ -64,7 +74,6 @@ if st.session_state.sp is None:
         )
         st.stop()
 
-
 # Logged in
 sp = st.session_state.sp
 username = st.session_state.username
@@ -76,6 +85,8 @@ with col1:
     load_clicked = st.button("🔄 Load My Spotify Data")
 with col3:
     if st.button("🚪 Log out"):
+        if os.path.exists(".cache"):
+            os.remove(".cache")
         st.session_state.clear()
         st.rerun()
 
@@ -95,6 +106,15 @@ if load_clicked:
         st.session_state.username = user["id"]
         st.session_state.display_name = user.get("display_name", "User")
         extract_and_store_top_tracks(st.session_state.sp, st.session_state.username)
+
+        conn = sqlite3.connect("spotify_data.db")
+        st.session_state.df = pd.read_sql_query(
+            "SELECT track_name, artist_name, genre FROM top_tracks WHERE username = ? AND term = ?",
+            conn,
+            params=(username, term)
+        )
+        conn.close()
+
         st.session_state.data_loaded = True
 
     st.success(f"✅ Data loaded for {st.session_state.display_name}!")
@@ -102,14 +122,7 @@ if load_clicked:
 
 # Display Data
 if st.session_state.data_loaded:
-    conn = sqlite3.connect("spotify_data.db")
-    df = pd.read_sql_query(
-        "SELECT track_name, artist_name, genre FROM top_tracks WHERE username = ? AND term = ?",
-        conn,
-        params=(username, term)
-    )
-    conn.close()
-
+    df = st.session_state.df
     if not df.empty:
         tab1, tab2 = st.tabs(["🎵 Top Tracks", "📊 Genre Chart"])
 
