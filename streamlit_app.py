@@ -81,16 +81,8 @@ with col1:
     load_clicked = st.button("🔄 Load My Spotify Data")
 with col3:
     if st.button("🚪 Log out"):
-        # We do not remove cache to preserve login between reloads
         st.session_state.clear()
         st.rerun()
-
-# Optional Reset Login Button (Development use)
-if st.button("🧹 Reset Login (Dev Only)"):
-    if os.path.exists(".cache"):
-        os.remove(".cache")
-    st.session_state.clear()
-    st.experimental_rerun()
 
 # Dropdown Centered
 term_options = {
