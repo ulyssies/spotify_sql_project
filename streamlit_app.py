@@ -11,10 +11,6 @@ import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 from secrets_handler import SPOTIPY_CLIENT_ID, SPOTIPY_CLIENT_SECRET, SPOTIPY_REDIRECT_URI
 
-# Always clear Spotify token cache on fresh app start
-if os.path.exists(".cache"):
-    os.remove(".cache")
-
 st.set_page_config(page_title="Spotify Statistics Visualizer", layout="centered")
 
 # Session state initialization
@@ -44,41 +40,43 @@ if st.session_state.sp is None:
         redirect_uri=SPOTIPY_REDIRECT_URI,
         scope="user-read-private user-top-read user-read-recently-played",
         cache_path=".cache",
+        open_browser=False,
+        show_dialog=True
     )
 
-    token_info = auth_manager.get_cached_token()
-
-    if token_info:
-        try:
+    try:
+        code = st.experimental_get_query_params().get("code", [None])[0]
+        if code:
+            token_info = auth_manager.get_access_token(code, as_dict=False)
             sp = spotipy.Spotify(auth_manager=auth_manager)
             user = sp.current_user()
             st.session_state.sp = sp
             st.session_state.username = user["id"]
             st.session_state.display_name = user.get("display_name", "User")
             st.rerun()
-        except:
-            st.error("Spotify login failed. Please refresh and try again.")
+        else:
+            auth_url = auth_manager.get_authorize_url()
+            st.markdown("<h1 style='text-align: center;'>Spotify Statistics Visualizer</h1>", unsafe_allow_html=True)
+            st.markdown(
+                f"""
+                <div style='background-color: rgba(0,0,0,0.6); padding: 2rem; border-radius: 1rem; text-align: center;'>
+                    <h1 style='font-size: 2.5rem;'>
+                        <span style='font-weight: bold;'>🌷 SpotYourVibe</span>
+                    </h1>
+                    <p>This is a personalized Spotify stats visualizer.<br>Log in to explore your top tracks, genres, and discover new music.</p>
+                    <a href='{auth_url}'>
+                        <button style='margin-top: 1rem; background-color: #1DB954; border: none; color: white; padding: 0.75rem 1.5rem; border-radius: 30px; font-weight: bold; font-size: 1rem;'>
+                            🔐 Log in with Spotify
+                        </button>
+                    </a>
+                    <p style='margin-top: 1rem; font-size: 0.85rem; color: gray;'>🔐 Spotify login required — no account data is stored.</p>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
             st.stop()
-    else:
-        auth_url = auth_manager.get_authorize_url()
-        st.markdown("<h1 style='text-align: center;'>Spotify Statistics Visualizer</h1>", unsafe_allow_html=True)
-        st.markdown(
-            f"""
-            <div style='background-color: rgba(0,0,0,0.6); padding: 2rem; border-radius: 1rem; text-align: center;'>
-                <h1 style='font-size: 2.5rem;'>
-                    <span style='font-weight: bold;'>🌷 SpotYourVibe</span>
-                </h1>
-                <p>This is a personalized Spotify stats visualizer.<br>Log in to explore your top tracks, genres, and discover new music.</p>
-                <a href='{auth_url}'>
-                    <button style='margin-top: 1rem; background-color: #1DB954; border: none; color: white; padding: 0.75rem 1.5rem; border-radius: 30px; font-weight: bold; font-size: 1rem;'>
-                        🔐 Log in with Spotify
-                    </button>
-                </a>
-                <p style='margin-top: 1rem; font-size: 0.85rem; color: gray;'>🔐 Spotify login required — no account data is stored.</p>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+    except:
+        st.error("Spotify login failed. Please refresh and try again.")
         st.stop()
 
 # Logged in
@@ -130,31 +128,9 @@ if load_clicked:
     st.success(f"✅ Data loaded for {st.session_state.display_name}!")
     st.header(f"👋 Welcome, {st.session_state.display_name}!")
 
-with col2:
-    if st.button("🚪 Log out"):
-        if os.path.exists(".cache"):
-            os.remove(".cache")
-        st.session_state.clear()
-        st.rerun()
-
 # Time selection
-dropdown_options = {
-    "Last 4 Weeks": "short_term",
-    "Last 6 Months": "medium_term",
-    "All Time": "long_term"
-}
-term_label = st.selectbox("Top Tracks for:", list(dropdown_options.keys()))
-term = dropdown_options[term_label]
-
-# Load user-specific data if available
 if st.session_state.data_loaded:
-    conn = sqlite3.connect("spotify_data.db")
-    df = pd.read_sql_query(
-        "SELECT track_name, artist_name, genre FROM top_tracks WHERE username = ? AND term = ?",
-        conn,
-        params=(username, term)
-    )
-    conn.close()
+    df = st.session_state.df
 
     if not df.empty:
         tab1, tab2 = st.tabs(["🎵 Top Tracks", "📊 Genre Chart"])
