@@ -1,14 +1,10 @@
-# extract_spotify.py
-
 import sqlite3
 import time
 
 def extract_and_store_top_tracks(sp, username, db_path="spotify_data.db"):
-    # connect to *exactly* the file you tell it
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
 
-    # create your multi‐user table if it doesn’t exist
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS top_tracks (
             username    TEXT,
@@ -30,10 +26,13 @@ def extract_and_store_top_tracks(sp, username, db_path="spotify_data.db"):
             return 'Unknown'
 
     def insert_for_term(term):
+        # 🧹 Clear any old entries for this user + term
+        cursor.execute("DELETE FROM top_tracks WHERE username = ? AND term = ?", (username, term))
+
         seen = set()
         count = 0
 
-        # 1) pull top_tracks
+        # 1) top tracks
         for item in sp.current_user_top_tracks(limit=50, time_range=term).get("items", []):
             if count >= 25:
                 break
@@ -56,7 +55,7 @@ def extract_and_store_top_tracks(sp, username, db_path="spotify_data.db"):
             ))
             count += 1
 
-        # 2) fill from recently played if under 25
+        # 2) fallback: recently played
         if count < 25:
             for rec in sp.current_user_recently_played(limit=50).get("items", []):
                 if count >= 25:
