@@ -13,6 +13,10 @@ from secrets_handler import SPOTIPY_CLIENT_ID, SPOTIPY_CLIENT_SECRET, SPOTIPY_RE
 
 st.set_page_config(page_title="Spotify Statistics Visualizer", layout="centered")
 
+# Force login every session
+if os.path.exists(".cache"):
+    os.remove(".cache")
+
 # Session state initialization
 if "sp" not in st.session_state:
     st.session_state.sp = None
@@ -43,6 +47,7 @@ if st.session_state.sp is None:
         st.session_state.sp = sp
         st.session_state.username = user["id"]
         st.session_state.display_name = user.get("display_name", "User")
+        st.rerun()
     else:
         auth_url = auth_manager.get_authorize_url()
         st.markdown("<h1 style='text-align: center;'>Spotify Statistics Visualizer</h1>", unsafe_allow_html=True)
@@ -70,8 +75,8 @@ sp = st.session_state.sp
 username = st.session_state.username
 display_name = st.session_state.display_name
 
-# Load button
-load_clicked = st.button("🔄 Load My Spotify Data", help="Click to fetch your personalized stats")
+# Load My Spotify Data Button
+load_clicked = st.button("🔄 Load My Spotify Data")
 
 # Dropdown
 term_options = {
@@ -105,7 +110,7 @@ if load_clicked:
 
     st.success(f"✅ Data loaded for {st.session_state.display_name}!")
     st.header(f"👋 Welcome, {st.session_state.display_name}!")
-    
+
 # Display data if loaded
 if st.session_state.data_loaded:
     conn = sqlite3.connect("spotify_data.db")
