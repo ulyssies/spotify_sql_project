@@ -11,11 +11,11 @@ import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 from secrets_handler import SPOTIPY_CLIENT_ID, SPOTIPY_CLIENT_SECRET, SPOTIPY_REDIRECT_URI
 
-st.set_page_config(page_title="Spotify Statistics Visualizer", layout="centered")
-
-# Always clear token cache on fresh app start to avoid reusing old login
+# Always clear Spotify token cache on fresh app start
 if os.path.exists(".cache"):
     os.remove(".cache")
+
+st.set_page_config(page_title="Spotify Statistics Visualizer", layout="centered")
 
 # Session state initialization
 if "sp" not in st.session_state:
@@ -28,6 +28,13 @@ if "username" not in st.session_state:
     st.session_state.username = None
 if "display_name" not in st.session_state:
     st.session_state.display_name = None
+if "just_logged_out" not in st.session_state:
+    st.session_state.just_logged_out = False
+
+# Handle logout rerun loop
+if st.session_state.just_logged_out:
+    st.session_state.just_logged_out = False
+    st.stop()
 
 # Spotify login
 if st.session_state.sp is None:
@@ -39,14 +46,20 @@ if st.session_state.sp is None:
         cache_path=".cache",
     )
 
-    try:
-        token_info = auth_manager.get_access_token(as_dict=False)
-        sp = spotipy.Spotify(auth_manager=auth_manager)
-        user = sp.current_user()
-        st.session_state.sp = sp
-        st.session_state.username = user["id"]
-        st.session_state.display_name = user.get("display_name", "User")
-    except:
+    token_info = auth_manager.get_cached_token()
+
+    if token_info:
+        try:
+            sp = spotipy.Spotify(auth_manager=auth_manager)
+            user = sp.current_user()
+            st.session_state.sp = sp
+            st.session_state.username = user["id"]
+            st.session_state.display_name = user.get("display_name", "User")
+            st.rerun()
+        except:
+            st.error("Spotify login failed. Please refresh and try again.")
+            st.stop()
+    else:
         auth_url = auth_manager.get_authorize_url()
         st.markdown("<h1 style='text-align: center;'>Spotify Statistics Visualizer</h1>", unsafe_allow_html=True)
         st.markdown(
@@ -73,14 +86,50 @@ sp = st.session_state.sp
 username = st.session_state.username
 display_name = st.session_state.display_name
 
-# Button styling
-col1, col2 = st.columns([1, 1])
+# Buttons and Dropdown aligned
+col1, col2, col3 = st.columns([1, 3, 1])
 with col1:
-    if st.button("🔄 Load My Spotify Data"):
-        with st.spinner("Fetching your Spotify data..."):
-            extract_and_store_top_tracks(sp, username)
-            st.session_state.data_loaded = True
-            st.success(f"✅ Data loaded for {display_name}!")
+    load_clicked = st.button("🔄 Load My Spotify Data")
+with col3:
+    logout_clicked = st.button("🚪 Log out")
+
+if logout_clicked:
+    if os.path.exists(".cache"):
+        os.remove(".cache")
+    st.session_state.clear()
+    st.session_state.just_logged_out = True
+    st.rerun()
+
+# Dropdown
+term_options = {
+    "Last 4 Weeks": "short_term",
+    "Last 6 Months": "medium_term",
+    "All Time": "long_term"
+}
+term_label = st.selectbox("Top Tracks for:", list(term_options.keys()))
+term = term_options[term_label]
+
+# Load Data Logic
+if load_clicked:
+    with st.spinner("Fetching your Spotify data..."):
+        user = st.session_state.sp.current_user()
+        st.session_state.username = user["id"]
+        st.session_state.display_name = user.get("display_name", "User")
+        extract_and_store_top_tracks(st.session_state.sp, st.session_state.username)
+
+        conn = sqlite3.connect("spotify_data.db")
+        st.session_state.df = pd.read_sql_query(
+            "SELECT track_name, artist_name, genre FROM top_tracks WHERE username = ? AND term = ?",
+            conn,
+            params=(username, term)
+        )
+        conn.close()
+
+        st.session_state.data_loaded = True
+
+    st.success(f"✅ Data loaded for {st.session_state.display_name}!")
+    st.header(f"👋 Welcome, {st.session_state.display_name}!")
+
 with col2:
     if st.button("🚪 Log out"):
         if os.path.exists(".cache"):
