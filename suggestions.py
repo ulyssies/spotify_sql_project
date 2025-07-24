@@ -114,6 +114,7 @@ def manual_suggestions(track_ids, sp):
                 "excerpt": excerpt,
                 "image": image_url,
                 "preview": preview
+                "url": f"https://open.spotify.com/track/{track['id']}"
             })
         except Exception as e:
             print(f"❌ Error fetching fallback track info for {tid}: {e}")
