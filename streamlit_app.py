@@ -24,6 +24,13 @@ if "username" not in st.session_state:
     st.session_state.username = None
 if "display_name" not in st.session_state:
     st.session_state.display_name = None
+if "just_logged_out" not in st.session_state:
+    st.session_state.just_logged_out = False
+
+# Handle logout rerun loop
+if st.session_state.just_logged_out:
+    st.session_state.just_logged_out = False
+    st.stop()
 
 # Spotify login
 if st.session_state.sp is None:
@@ -43,6 +50,7 @@ if st.session_state.sp is None:
         st.session_state.sp = sp
         st.session_state.username = user["id"]
         st.session_state.display_name = user.get("display_name", "User")
+        st.rerun()
     else:
         auth_url = auth_manager.get_authorize_url()
         st.markdown("<h1 style='text-align: center;'>Spotify Statistics Visualizer</h1>", unsafe_allow_html=True)
@@ -70,7 +78,75 @@ sp = st.session_state.sp
 username = st.session_state.username
 display_name = st.session_state.display_name
 
-st.markdown(f"## 👋 Welcome, {display_name}!")
+# Buttons and Dropdown aligned
+st.markdown("""
+    <style>
+    .button-container {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
+        margin-bottom: 0.5rem;
+    }
+    .button-container button {
+        white-space: nowrap;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+st.markdown("""
+    <div class='button-container'>
+        <form action='#'>
+            <button name='load_data' type='submit'>🔄 Load My Spotify Data</button>
+        </form>
+        <form action='#'>
+            <button name='logout' type='submit'>🚪 Log out</button>
+        </form>
+    </div>
+""", unsafe_allow_html=True)
+
+load_clicked = 'load_data' in st.query_params
+logout_clicked = 'logout' in st.query_params
+
+if logout_clicked:
+    if os.path.exists(".cache"):
+        os.remove(".cache")
+    st.session_state.clear()
+    st.session_state.just_logged_out = True
+    st.rerun()
+
+# Dropdown
+term_options = {
+    "Last 4 Weeks": "short_term",
+    "Last 6 Months": "medium_term",
+    "All Time": "long_term"
+}
+term_label = st.selectbox("Top Tracks for:", list(term_options.keys()))
+term = term_options[term_label]
+
+# Load Data Logic
+if load_clicked:
+    with st.spinner("Fetching your Spotify data..."):
+        user = st.session_state.sp.current_user()
+        st.session_state.username = user["id"]
+        st.session_state.display_name = user.get("display_name", "User")
+        extract_and_store_top_tracks(st.session_state.sp, st.session_state.username)
+
+        conn = sqlite3.connect("spotify_data.db")
+        st.session_state.df = pd.read_sql_query(
+            "SELECT track_name, artist_name, genre "
+            "FROM top_tracks "
+            "WHERE term = ? AND username = ? "
+            "ORDER BY play_count ASC",
+            conn,
+            params=(term, st.session_state.username)
+        )
+        conn.close()
+
+        st.session_state.data_loaded = True
+
+    st.success(f"✅ Data loaded for {st.session_state.display_name}!")
+    st.header(f"👋 Welcome, {st.session_state.display_name}!")
 
 # Load button
 if st.button("🔄 Load My Spotify Data"):
