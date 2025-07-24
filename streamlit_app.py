@@ -44,7 +44,7 @@ if st.session_state.sp is None:
         st.session_state.sp = sp
         st.session_state.username = user["id"]
         st.session_state.display_name = user.get("display_name", "User")
-        st.experimental_rerun()
+        st.rerun()
     else:
         auth_url = auth_manager.get_authorize_url()
         st.markdown("<h1 style='text-align: center;'>Spotify Statistics Visualizer</h1>", unsafe_allow_html=True)
@@ -75,7 +75,7 @@ display_name = st.session_state.display_name
 # Logout button
 if st.button("🚪 Log out"):
     st.session_state.clear()
-    st.experimental_rerun()
+    st.rerun()
 
 # Term selection
 term_options = {
