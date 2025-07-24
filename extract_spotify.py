@@ -1,10 +1,15 @@
 import sqlite3
 import time
 
-def extract_and_store_top_tracks(sp, username, db_path="spotify_data.db"):
+def extract_and_store_top_tracks(sp, username, db_path=None):
+    if db_path is None:
+        db_path = f"spotify_{username}.db"
+
+    # ✅ Fix: connect to the user's personalized DB
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
 
+    # Create table if it doesn't exist
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS top_tracks (
             username    TEXT,
@@ -32,7 +37,7 @@ def extract_and_store_top_tracks(sp, username, db_path="spotify_data.db"):
         seen = set()
         count = 0
 
-        # 1) top tracks
+        # 1) Top tracks
         for item in sp.current_user_top_tracks(limit=50, time_range=term).get("items", []):
             if count >= 25:
                 break
@@ -55,7 +60,7 @@ def extract_and_store_top_tracks(sp, username, db_path="spotify_data.db"):
             ))
             count += 1
 
-        # 2) fallback: recently played
+        # 2) Fallback: recently played
         if count < 25:
             for rec in sp.current_user_recently_played(limit=50).get("items", []):
                 if count >= 25:
