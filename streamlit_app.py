@@ -13,43 +13,36 @@ from secrets_handler import SPOTIPY_CLIENT_ID, SPOTIPY_CLIENT_SECRET, SPOTIPY_RE
 
 st.set_page_config(page_title="Spotify Statistics Visualizer", layout="centered")
 
-# Clear cached Spotify token and reset session state on app load
-if not st.session_state.get("startup_cleaned", False):
-    if os.path.exists(".cache"):
-        os.remove(".cache")
-    st.session_state.df = pd.DataFrame()
-    st.session_state.data_loaded = False
-    st.session_state.startup_cleaned = True
-
 # Session state initialization
 if "sp" not in st.session_state:
     st.session_state.sp = None
+if "data_loaded" not in st.session_state:
+    st.session_state.data_loaded = False
+if "df" not in st.session_state:
+    st.session_state.df = pd.DataFrame()
 if "username" not in st.session_state:
     st.session_state.username = None
 if "display_name" not in st.session_state:
     st.session_state.display_name = None
 
-# Spotify login
+# Spotify authentication setup
+auth_manager = SpotifyOAuth(
+    client_id=SPOTIPY_CLIENT_ID,
+    client_secret=SPOTIPY_CLIENT_SECRET,
+    redirect_uri=SPOTIPY_REDIRECT_URI,
+    scope="user-read-private user-top-read user-read-recently-played",
+    cache_path=".cache",
+)
+
+# Check for token
 if st.session_state.sp is None:
-    auth_manager = SpotifyOAuth(
-        client_id=SPOTIPY_CLIENT_ID,
-        client_secret=SPOTIPY_CLIENT_SECRET,
-        redirect_uri=SPOTIPY_REDIRECT_URI,
-        scope="user-read-private user-top-read user-read-recently-played",
-        cache_path=".cache",
-    )
-
     token_info = auth_manager.get_cached_token()
-
     if token_info:
         sp = spotipy.Spotify(auth_manager=auth_manager)
         user = sp.current_user()
         st.session_state.sp = sp
         st.session_state.username = user["id"]
         st.session_state.display_name = user.get("display_name", "User")
-        if not st.session_state.get("just_logged_in", False):
-            st.session_state.just_logged_in = True
-            st.rerun()
     else:
         auth_url = auth_manager.get_authorize_url()
         st.markdown("<h1 style='text-align: center;'>Spotify Statistics Visualizer</h1>", unsafe_allow_html=True)
@@ -77,17 +70,13 @@ sp = st.session_state.sp
 username = st.session_state.username
 display_name = st.session_state.display_name
 
-# Reset login flag to prevent loops
-if st.session_state.get("just_logged_in"):
-    st.session_state.just_logged_in = False
-
-# UI controls
+# Side-by-side buttons aligned to dropdown width
 with st.container():
     col1, col_spacer, col2 = st.columns([2, 6, 2])
     with col1:
         load_clicked = st.button("🔄 Load My Spotify Data")
 
-# Dropdown menu
+# Dropdown
 term_options = {
     "Last 4 Weeks": "short_term",
     "Last 6 Months": "medium_term",
@@ -96,15 +85,15 @@ term_options = {
 term_label = st.selectbox("Top Tracks for:", list(term_options.keys()))
 term = term_options[term_label]
 
-# Load data from Spotify API and store in DB
+# Load Data Logic
 if load_clicked:
     with st.spinner("Fetching your Spotify data..."):
         extract_and_store_top_tracks(sp, username)
         st.session_state.data_loaded = True
-        st.success(f"✅ Data loaded for {display_name}!")
-        st.header(f"👋 Welcome, {display_name}!")
+    st.success(f"✅ Data loaded for {display_name}!")
+    st.header(f"👋 Welcome, {display_name}!")
 
-# Display graphs if data is loaded
+# Display data if loaded
 if st.session_state.data_loaded:
     conn = sqlite3.connect("spotify_data.db")
     df = pd.read_sql_query(
@@ -182,5 +171,31 @@ if st.session_state.data_loaded:
                 )
                 st.plotly_chart(fig, use_container_width=True)
 
-else:
-    st.info("Click '🔄 Load My Spotify Data' to view your personalized stats.")
+                if term != "long_term":
+                    long_df = pd.read_sql_query(
+                        "SELECT genre FROM top_tracks WHERE genre != 'Unknown' AND term = 'long_term' AND username = ?",
+                        sqlite3.connect("spotify_data.db"),
+                        params=(username,)
+                    )
+                    long_genres = []
+                    for g in long_df["genre"]:
+                        long_genres += [x.strip() for x in g.split(',') if x.strip()]
+                    long_counts = Counter(long_genres)
+                    long_total = sum(long_counts.values())
+                    long_pct = {k: v / long_total * 100 for k, v in long_counts.items()}
+
+                    change_summary = []
+                    for genre in genre_df["Genre"]:
+                        current = genre_df[genre_df["Genre"] == genre]["Percentage"].values[0]
+                        past = long_pct.get(genre, 0)
+                        delta = current - past
+                        symbol = "🔺" if delta > 0 else ("🔻" if delta < 0 else "➖")
+                        change_summary.append(f"{symbol} {genre}: {delta:+.1f}%")
+
+                    st.markdown("**Genre Change Compared to All Time:**")
+                    for change in change_summary:
+                        st.markdown(f"- {change}")
+            else:
+                st.info("No genre data available for this term.")
+    else:
+        st.info("No data available. Please load your data first.")
