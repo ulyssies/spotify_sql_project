@@ -1,8 +1,3 @@
-# --- Reference: Previous Working `streamlit_app.py` and `extract_spotify.py` preserved ---
-# Streamlit App using user-specific database
-
-# === streamlit_app.py ===
-
 import streamlit as st
 import sqlite3
 import pandas as pd
@@ -181,7 +176,6 @@ if st.session_state.data_loaded and not st.session_state.df.empty:
             st.info("No genre data available for this term.")
 else:
     st.info("Click '🔄 Load My Spotify Data' to view your personalized stats.")
-
 if term != "All Time":
     try:
         # Load long_term data from the user's specific database
