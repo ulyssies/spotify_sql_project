@@ -107,7 +107,7 @@ if st.session_state.data_loaded and not st.session_state.df.empty:
 
         st.markdown("---")
         st.subheader("💡 Suggested Songs Based on Your Top Tracks")
-        suggestions = get_song_suggestions(term, sp)
+        suggestions = get_song_suggestions(term, sp, username=username, db_path=user_db)
 
         if suggestions:
             for s in suggestions:
