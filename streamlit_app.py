@@ -24,13 +24,6 @@ if "username" not in st.session_state:
     st.session_state.username = None
 if "display_name" not in st.session_state:
     st.session_state.display_name = None
-if "just_logged_out" not in st.session_state:
-    st.session_state.just_logged_out = False
-
-# Handle logout rerun loop
-if st.session_state.get("just_logged_out"):
-    st.session_state.just_logged_out = False
-    st.stop()
 
 # Spotify login
 if st.session_state.sp is None:
@@ -78,18 +71,8 @@ sp = st.session_state.sp
 username = st.session_state.username
 display_name = st.session_state.display_name
 
-# Side-by-side buttons aligned to dropdown width
-with st.container():
-    col1, col_spacer, col2 = st.columns([2, 6, 2])
-    with col1:
-        load_clicked = st.button("🔄 Load My Spotify Data")
-    with col2:
-        if st.button("🚪 Log out"):
-            if os.path.exists(".cache"):
-                os.remove(".cache")
-            st.session_state.clear()
-            st.session_state.just_logged_out = True
-            st.rerun()
+# Load Button
+load_clicked = st.button("🔄 Load My Spotify Data")
 
 # Dropdown
 term_options = {
