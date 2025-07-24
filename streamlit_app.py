@@ -28,7 +28,7 @@ if "just_logged_out" not in st.session_state:
     st.session_state.just_logged_out = False
 
 # Handle logout rerun loop
-if st.session_state.just_logged_out:
+if st.session_state.get("just_logged_out"):
     st.session_state.just_logged_out = False
     st.stop()
 
@@ -82,9 +82,9 @@ display_name = st.session_state.display_name
 with st.container():
     col1, col2 = st.columns([1, 1])
     with col1:
-        load_clicked = st.button("🔄 Load My Spotify Data", use_container_width=True)
+        load_clicked = st.button("🔄 Load My Spotify Data")
     with col2:
-        if st.button("🚪 Log out", use_container_width=True):
+        if st.button("🚪 Log out"):
             if os.path.exists(".cache"):
                 os.remove(".cache")
             st.session_state.clear()
@@ -124,7 +124,6 @@ if load_clicked:
     st.success(f"✅ Data loaded for {st.session_state.display_name}!")
     st.header(f"👋 Welcome, {st.session_state.display_name}!")
 
-# Rest of your graphing and UI display remains untouched (you can paste that below this block)
 
 # Display data if loaded
 if st.session_state.data_loaded and not st.session_state.df.empty:
