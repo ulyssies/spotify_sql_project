@@ -1,4 +1,3 @@
-
 import os
 import streamlit as st
 import sqlite3
@@ -19,8 +18,6 @@ if "sp" not in st.session_state:
     st.session_state.sp = None
 if "data_loaded" not in st.session_state:
     st.session_state.data_loaded = False
-if "df" not in st.session_state:
-    st.session_state.df = pd.DataFrame()
 if "username" not in st.session_state:
     st.session_state.username = None
 if "display_name" not in st.session_state:
@@ -100,15 +97,6 @@ if load_clicked:
         st.session_state.username = user["id"]
         st.session_state.display_name = user.get("display_name", "User")
         extract_and_store_top_tracks(st.session_state.sp, st.session_state.username)
-
-        conn = sqlite3.connect("spotify_data.db")
-        st.session_state.df = pd.read_sql_query(
-            "SELECT track_name, artist_name, genre FROM top_tracks WHERE username = ? AND term = ?",
-            conn,
-            params=(username, term)
-        )
-        conn.close()
-
         st.session_state.data_loaded = True
 
     st.success(f"✅ Data loaded for {st.session_state.display_name}!")
@@ -116,7 +104,14 @@ if load_clicked:
 
 # Display Data
 if st.session_state.data_loaded:
-    df = st.session_state.df
+    conn = sqlite3.connect("spotify_data.db")
+    df = pd.read_sql_query(
+        "SELECT track_name, artist_name, genre FROM top_tracks WHERE username = ? AND term = ?",
+        conn,
+        params=(username, term)
+    )
+    conn.close()
+
     if not df.empty:
         tab1, tab2 = st.tabs(["🎵 Top Tracks", "📊 Genre Chart"])
 
