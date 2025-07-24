@@ -11,14 +11,14 @@ import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 from secrets_handler import SPOTIPY_CLIENT_ID, SPOTIPY_CLIENT_SECRET, SPOTIPY_REDIRECT_URI
 
-# Clear cache and session on app start to enforce fresh login
+# Always clear token cache and session state to force login every time
 if os.path.exists(".cache"):
     os.remove(".cache")
 st.session_state.clear()
 
 st.set_page_config(page_title="Spotify Statistics Visualizer", layout="centered")
 
-# Init session state
+# Session state initialization
 if "sp" not in st.session_state:
     st.session_state.sp = None
 if "data_loaded" not in st.session_state:
@@ -30,14 +30,14 @@ if "username" not in st.session_state:
 if "display_name" not in st.session_state:
     st.session_state.display_name = None
 
-# Auth logic
+# Spotify login
 if st.session_state.sp is None:
     auth_manager = SpotifyOAuth(
         client_id=SPOTIPY_CLIENT_ID,
         client_secret=SPOTIPY_CLIENT_SECRET,
         redirect_uri=SPOTIPY_REDIRECT_URI,
         scope="user-read-private user-top-read user-read-recently-played",
-        cache_path=".cache"
+        cache_path=".cache",
     )
 
     try:
@@ -71,12 +71,18 @@ sp = st.session_state.sp
 username = st.session_state.username
 display_name = st.session_state.display_name
 
-# Load button only
+# Buttons
 col1, col2, col3 = st.columns([2, 6, 2])
 with col1:
     load_clicked = st.button("🔄 Load My Spotify Data")
+with col3:
+    if st.button("🚪 Log out"):
+        if os.path.exists(".cache"):
+            os.remove(".cache")
+        st.session_state.clear()
+        st.rerun()
 
-# Term selection
+# Dropdown
 term_options = {
     "Last 4 Weeks": "short_term",
     "Last 6 Months": "medium_term",
@@ -85,7 +91,7 @@ term_options = {
 term_label = st.selectbox("Top Tracks for:", list(term_options.keys()), index=0)
 term = term_options[term_label]
 
-# Load data
+# Load Data Logic
 if load_clicked:
     with st.spinner("Fetching your Spotify data..."):
         extract_and_store_top_tracks(sp, username)
@@ -101,7 +107,7 @@ if load_clicked:
     st.success(f"✅ Data loaded for {display_name}!")
     st.header(f"👋 Welcome, {display_name}!")
 
-# Show data
+# Display Data
 if st.session_state.data_loaded:
     df = st.session_state.df
     if not df.empty:
