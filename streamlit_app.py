@@ -49,10 +49,22 @@ if st.session_state.sp is None:
             st.stop()
     else:
         auth_url = auth_manager.get_authorize_url()
-        st.markdown("## 🌷 SpotYourVibe")
-        st.markdown("This is a personalized Spotify stats visualizer. Log in to explore your top tracks, genres, and discover new music.")
-        st.link_button("🔐 Log in with Spotify", auth_url)
-        st.info("🔐 Spotify login required — no account data is stored.")
+        st.markdown(
+            f"""
+            <h1 style='text-align: center;'>Spotify Statistics Visualizer</h1>
+            <div style='background-color: rgba(0,0,0,0.6); padding: 2rem; border-radius: 1rem; text-align: center;'>
+                <h1 style='font-size: 2.5rem; margin-bottom: 0.5rem;'>🌷 <span style='font-weight: bold;'>SpotYourVibe</span></h1>
+                <p>This is a personalized Spotify stats visualizer.<br>Log in to explore your top tracks, genres, and discover new music.</p>
+                <form action=\"{auth_url}\" method=\"get\">
+                    <button type=\"submit\" style='margin-top: 1rem; background-color: #1DB954; border: none; color: white; padding: 0.75rem 1.5rem; border-radius: 30px; font-weight: bold; font-size: 1rem; cursor: pointer;'>
+                        🔐 Log in with Spotify
+                    </button>
+                </form>
+                <div style='margin-top: 1rem; font-size: 0.85rem; color: gray;'>🔐 Spotify login required — no account data is stored.</div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
         st.stop()
 
 # Logged in
@@ -83,11 +95,7 @@ term = term_options[term_label]
 # Load Data Logic
 if load_clicked:
     with st.spinner("Fetching your Spotify data..."):
-        user = st.session_state.sp.current_user()
-        st.session_state.username = user["id"]
-        st.session_state.display_name = user.get("display_name", "User")
-        extract_and_store_top_tracks(st.session_state.sp, st.session_state.username)
-
+        extract_and_store_top_tracks(sp, username)
         conn = sqlite3.connect("spotify_data.db")
         st.session_state.df = pd.read_sql_query(
             "SELECT track_name, artist_name, genre FROM top_tracks WHERE username = ? AND term = ?",
@@ -95,11 +103,9 @@ if load_clicked:
             params=(username, term)
         )
         conn.close()
-
         st.session_state.data_loaded = True
-
-    st.success(f"✅ Data loaded for {st.session_state.display_name}!")
-    st.header(f"👋 Welcome, {st.session_state.display_name}!")
+    st.success(f"✅ Data loaded for {display_name}!")
+    st.header(f"👋 Welcome, {display_name}!")
 
 # Display Data
 if st.session_state.data_loaded:
@@ -128,7 +134,6 @@ if st.session_state.data_loaded:
                     excerpt = s["excerpt"]
                     image_url = s.get("image", "")
                     url = s.get("url", "")
-
                     with st.container():
                         col1, col2 = st.columns([1, 6])
                         with col1:
