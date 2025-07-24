@@ -11,12 +11,16 @@ import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 from secrets_handler import SPOTIPY_CLIENT_ID, SPOTIPY_CLIENT_SECRET, SPOTIPY_REDIRECT_URI
 
-# Always clear Spotify token cache and session state on fresh app start
+# Always clear Spotify token cache on fresh app start (do not clear session here!)
 if os.path.exists(".cache"):
     os.remove(".cache")
-st.session_state.clear()
 
-st.set_page_config(page_title="Spotify Statistics Visualizer", layout="centered")
+# Use a flag to clear session only once
+if "cleared" not in st.session_state:
+    keys_to_clear = ["sp", "data_loaded", "df", "username", "display_name"]
+    for k in keys_to_clear:
+        st.session_state.pop(k, None)
+    st.session_state["cleared"] = True
 
 # Session state initialization
 if "sp" not in st.session_state:
