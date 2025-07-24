@@ -91,7 +91,8 @@ def get_song_suggestions(term="short_term", sp=None, username=None, db_path=None
             "artist": artist,
             "excerpt": excerpt,
             "image": image_url,
-            "preview": preview
+            "preview": preview,
+            "url": f"https://open.spotify.com/track/{track['id']}"
         })
 
     return suggestions
@@ -119,10 +120,12 @@ def manual_suggestions(track_ids, sp):
         except Exception as e:
             print(f"❌ Error fetching fallback track info for {tid}: {e}")
             fallback.append({
-                "track": tid,
-                "artist": "Unknown",
-                "excerpt": f"[Listen on Spotify 🔗](https://open.spotify.com/track/{tid})",
-                "image": "",
-                "preview": ""
+                "track": name,
+                "artist": artist,
+                "excerpt": excerpt,
+                "image": image_url,
+                "preview": preview,
+                "url": f"https://open.spotify.com/track/{tid}"
             })
+
     return fallback
