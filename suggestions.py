@@ -1,10 +1,5 @@
-# ✅ Updated suggestions.py
-import os
 import sqlite3
-import streamlit as st
 import spotipy
-
-# Function expects Spotify client to be passed in
 
 def validate_seed_tracks(track_ids, sp):
     valid = []
@@ -27,16 +22,30 @@ def validate_seed_tracks(track_ids, sp):
             print(f"❌ Error validating track {tid}: {e}")
     return valid
 
-def get_song_suggestions(term="short_term", sp=None):
+def get_song_suggestions(term="short_term", sp=None, username=None, db_path=None):
     if not sp:
         print("❌ Spotify client not provided.")
         return []
+    if not username:
+        print("❌ Username not provided.")
+        return []
 
-    conn = sqlite3.connect("spotify_data.db")
-    cursor = conn.cursor()
-    cursor.execute("SELECT track_id FROM top_tracks WHERE term = ? ORDER BY play_count DESC", (term,))
-    db_track_ids = [row[0] for row in cursor.fetchall()]
-    conn.close()
+    # default to per-user DB if not provided
+    if db_path is None:
+        db_path = f"spotify_{username}.db"
+
+    try:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT track_id FROM top_tracks WHERE username = ? AND term = ? ORDER BY play_count DESC",
+            (username, term)
+        )
+        db_track_ids = [row[0] for row in cursor.fetchall()]
+        conn.close()
+    except Exception as e:
+        print(f"❌ Could not read from DB {db_path}: {e}")
+        return []
 
     seed_tracks = validate_seed_tracks(db_track_ids, sp)
 
