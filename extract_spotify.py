@@ -3,7 +3,6 @@ import sqlite3
 import pandas as pd
 import matplotlib.pyplot as plt
 from collections import Counter
-from extract_spotify import extract_and_store_top_tracks
 from suggestions import get_song_suggestions
 import plotly.graph_objects as go
 import spotipy
