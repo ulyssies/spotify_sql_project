@@ -155,86 +155,66 @@ if st.session_state.data_loaded and not st.session_state.df.empty:
                 height=500
             )
             st.plotly_chart(fig, use_container_width=True)
+
+            if term != "long_term":
+                long_df = pd.read_sql_query(
+                    "SELECT genre FROM top_tracks WHERE genre != 'Unknown' AND term = 'long_term'",
+                    sqlite3.connect(user_db)
+                )
+                long_genres = [g.strip() for g in long_df["genre"] for g in g.split(',') if g.strip()]
+                long_counts = Counter(long_genres)
+                long_total = sum(long_counts.values())
+                long_pct = {k: v / long_total * 100 for k, v in long_counts.items()}
+
+                change_summary = []
+                for genre in genre_df["Genre"]:
+                    current = genre_df[genre_df["Genre"] == genre]["Percentage"].values[0]
+                    past = long_pct.get(genre, 0)
+                    delta = current - past
+                    symbol = "🔺" if delta > 0 else ("🔻" if delta < 0 else "➖")
+                    change_summary.append(f"{symbol} {genre}: {delta:+.1f}%")
+
+                st.markdown("**Genre Change Compared to All Time:**")
+                for change in change_summary:
+                    st.markdown(f"- {change}")
         else:
             st.info("No genre data available for this term.")
 else:
     st.info("Click '🔄 Load My Spotify Data' to view your personalized stats.")
 
-
-# === extract_spotify.py ===
-
-import sqlite3
-import time
-
-def extract_and_store_top_tracks(sp, username, db_path):
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS top_tracks (
-            track_id    TEXT,
-            track_name  TEXT,
-            artist_name TEXT,
-            genre       TEXT,
-            term        TEXT,
-            play_count  INTEGER,
-            PRIMARY KEY (track_id, term)
+if term != "All Time":
+    try:
+        # Load long_term data from the user's specific database
+        long_df = pd.read_sql_query(
+            """
+            SELECT genre FROM top_tracks
+            WHERE genre != 'Unknown' AND term = 'long_term' AND track_id IN (
+                SELECT track_id FROM top_tracks WHERE term = ?
+            )
+            """,
+            sqlite3.connect(user_db),
+            params=(term_options[term_label],)
         )
-    """)
-    conn.commit()
 
-    def get_artist_genres(artist_id):
-        try:
-            return ', '.join(sp.artist(artist_id).get('genres', [])) or 'Unknown'
-        except:
-            return 'Unknown'
+        long_genres = [g.strip() for g in long_df["genre"] if g and g != "Unknown" for g in g.split(',')]
+        long_counts = Counter(long_genres)
 
-    def insert_for_term(term):
-        seen = set()
-        count = 0
+        short_genres = [g.strip() for g in df["genre"] if g and g != "Unknown" for g in g.split(',')]
+        short_counts = Counter(short_genres)
 
-        for item in sp.current_user_top_tracks(limit=50, time_range=term).get("items", []):
-            if count >= 25: break
-            tid = item["id"]
-            if tid in seen: continue
-            seen.add(tid)
-            cursor.execute("""
-                INSERT OR REPLACE INTO top_tracks (track_id, track_name, artist_name, genre, term, play_count)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """, (
-                tid,
-                item["name"],
-                item["artists"][0]["name"],
-                get_artist_genres(item["artists"][0]["id"]),
-                term,
-                count + 1
-            ))
-            count += 1
+        genre_deltas = []
+        for genre in set(long_counts.keys()).union(short_counts.keys()):
+            delta = short_counts.get(genre, 0) - long_counts.get(genre, 0)
+            genre_deltas.append((genre, delta))
 
-        if count < 25:
-            for rec in sp.current_user_recently_played(limit=50).get("items", []):
-                if count >= 25: break
-                tid = rec["track"]["id"]
-                if tid in seen: continue
-                seen.add(tid)
-                cursor.execute("""
-                    INSERT OR REPLACE INTO top_tracks (track_id, track_name, artist_name, genre, term, play_count)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                """, (
-                    tid,
-                    rec["track"]["name"],
-                    rec["track"]["artists"][0]["name"],
-                    get_artist_genres(rec["track"]["artists"][0]["id"]),
-                    term,
-                    count + 1
-                ))
-                count += 1
+        genre_deltas.sort(key=lambda x: abs(x[1]), reverse=True)
 
-        conn.commit()
+        st.markdown("---")
+        st.subheader("🔄 Change in Genre Preference (Now vs. All Time)")
 
-    for t in ["short_term", "medium_term", "long_term"]:
-        insert_for_term(t)
-        time.sleep(1.5)
+        for genre, delta in genre_deltas[:5]:
+            symbol = "🔼" if delta > 0 else "🔽" if delta < 0 else "⏺"
+            st.markdown(f"{symbol} **{genre}**: {delta:+}")
 
-    conn.close()
-    print(f"✅ Wrote user-specific data for {username} into {db_path}")
+    except Exception as e:
+        st.warning(f"Could not compute genre change: {e}")
