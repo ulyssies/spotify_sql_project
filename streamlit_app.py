@@ -1,3 +1,4 @@
+import os
 import streamlit as st
 import sqlite3
 import pandas as pd
@@ -9,7 +10,6 @@ import plotly.graph_objects as go
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 from secrets_handler import SPOTIPY_CLIENT_ID, SPOTIPY_CLIENT_SECRET, SPOTIPY_REDIRECT_URI
-import os
 
 st.set_page_config(page_title="Spotify Statistics Visualizer", layout="centered")
 
@@ -24,8 +24,13 @@ if "username" not in st.session_state:
     st.session_state.username = None
 if "display_name" not in st.session_state:
     st.session_state.display_name = None
-if "fetched_terms" not in st.session_state:
-    st.session_state.fetched_terms = set()
+if "just_logged_out" not in st.session_state:
+    st.session_state.just_logged_out = False
+
+# Handle logout rerun loop
+if st.session_state.just_logged_out:
+    st.session_state.just_logged_out = False
+    st.stop()
 
 # Spotify login
 if st.session_state.sp is None:
@@ -53,7 +58,7 @@ if st.session_state.sp is None:
             f"""
             <div style='background-color: rgba(0,0,0,0.6); padding: 2rem; border-radius: 1rem; text-align: center;'>
                 <h1 style='font-size: 2.5rem;'>
-                    <span style='font-weight: bold;'>🎧 SpotYourVibe</span>
+                    <span style='font-weight: bold;'>🎷 SpotYourVibe</span>
                 </h1>
                 <p>This is a personalized Spotify stats visualizer.<br>Log in to explore your top tracks, genres, and discover new music.</p>
                 <a href='{auth_url}'>
@@ -73,18 +78,20 @@ sp = st.session_state.sp
 username = st.session_state.username
 display_name = st.session_state.display_name
 
-# Buttons row: load (left), logout (right)
-col1, col2, col3 = st.columns([4, 2, 4])
-with col1:
-    load_clicked = st.button("🔄 Load My Spotify Data")
-with col3:
-    if st.button("🚪 Log out"):
-        if os.path.exists(".cache"):
-            os.remove(".cache")
-        st.session_state.clear()
-        st.rerun()
+# Side-by-side buttons aligned to dropdown width
+with st.container():
+    col1, col2 = st.columns([1, 1])
+    with col1:
+        load_clicked = st.button("🔄 Load My Spotify Data", use_container_width=True)
+    with col2:
+        if st.button("🚪 Log out", use_container_width=True):
+            if os.path.exists(".cache"):
+                os.remove(".cache")
+            st.session_state.clear()
+            st.session_state.just_logged_out = True
+            st.rerun()
 
-# Time period dropdown
+# Dropdown
 term_options = {
     "Last 4 Weeks": "short_term",
     "Last 6 Months": "medium_term",
@@ -93,16 +100,13 @@ term_options = {
 term_label = st.selectbox("Top Tracks for:", list(term_options.keys()))
 term = term_options[term_label]
 
-# Load data if needed
+# Load Data Logic
 if load_clicked:
     with st.spinner("Fetching your Spotify data..."):
         user = st.session_state.sp.current_user()
         st.session_state.username = user["id"]
         st.session_state.display_name = user.get("display_name", "User")
-
-        if term not in st.session_state.fetched_terms:
-            extract_and_store_top_tracks(st.session_state.sp, st.session_state.username)
-            st.session_state.fetched_terms.add(term)
+        extract_and_store_top_tracks(st.session_state.sp, st.session_state.username)
 
         conn = sqlite3.connect("spotify_data.db")
         st.session_state.df = pd.read_sql_query(
@@ -119,6 +123,8 @@ if load_clicked:
 
     st.success(f"✅ Data loaded for {st.session_state.display_name}!")
     st.header(f"👋 Welcome, {st.session_state.display_name}!")
+
+# Rest of your graphing and UI display remains untouched (you can paste that below this block)
 
 # Display data if loaded
 if st.session_state.data_loaded and not st.session_state.df.empty:
