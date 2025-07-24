@@ -87,18 +87,34 @@ term_options = {
 term_label = st.selectbox("Top Tracks for:", list(term_options.keys()))
 term = term_options[term_label]
 
+# Button to load data
 if st.button("🔄 Load My Spotify Data"):
     with st.spinner("Fetching your Spotify data..."):
-        extract_and_store_top_tracks(sp, username)
+        # 1) Re-fetch the current Spotify user (so it's never stale)
+        user = st.session_state.sp.current_user()
+        st.session_state.username     = user["id"]                         # DB key
+        st.session_state.display_name = user.get("display_name", "User")     # UI
+
+        # 2) Extract & store *their* top tracks
+        extract_and_store_top_tracks(st.session_state.sp, st.session_state.username)
+
+        # 3) Pull only *their* data for the selected term
         conn = sqlite3.connect("spotify_data.db")
         st.session_state.df = pd.read_sql_query(
-            "SELECT track_name, artist_name, genre FROM top_tracks WHERE term = ? AND username = ? ORDER BY play_count ASC",
-            conn, params=(term, username)
+            "SELECT track_name, artist_name, genre "
+            "FROM top_tracks "
+            "WHERE term = ? AND username = ? "
+            "ORDER BY play_count ASC",
+            conn,
+            params=(term, st.session_state.username)
         )
         conn.close()
+
         st.session_state.data_loaded = True
-    st.success(f"✅ Data loaded for {display_name}!")
-    st.header(f"👋 Welcome, {display_name}!")
+
+    # 4) Show success + greeting with *their* display name
+    st.success(f"✅ Data loaded for {st.session_state.display_name}!")
+    st.header(f"👋 Welcome, {st.session_state.display_name}!")
 
 if st.session_state.data_loaded and not st.session_state.df.empty:
     df = st.session_state.df
@@ -197,35 +213,3 @@ if st.session_state.data_loaded and not st.session_state.df.empty:
             st.info("No genre data available for this term.")
 else:
     st.info("Click '🔄 Load My Spotify Data' to view your personalized stats.")
-
-
-
-can you update my streamlit_app.py with the suggestions you gave me 
-# Button to load data
-if st.button("🔄 Load My Spotify Data"):
-    with st.spinner("Fetching your Spotify data..."):
-        # 1) Re-fetch the current Spotify user (so it's never stale)
-        user = st.session_state.sp.current_user()
-        st.session_state.username     = user["id"]                         # DB key
-        st.session_state.display_name = user.get("display_name", "User")     # UI
-
-        # 2) Extract & store *their* top tracks
-        extract_and_store_top_tracks(st.session_state.sp, st.session_state.username)
-
-        # 3) Pull only *their* data for the selected term
-        conn = sqlite3.connect("spotify_data.db")
-        st.session_state.df = pd.read_sql_query(
-            "SELECT track_name, artist_name, genre "
-            "FROM top_tracks "
-            "WHERE term = ? AND username = ? "
-            "ORDER BY play_count ASC",
-            conn,
-            params=(term, st.session_state.username)
-        )
-        conn.close()
-
-        st.session_state.data_loaded = True
-
-    # 4) Show success + greeting with *their* display name
-    st.success(f"✅ Data loaded for {st.session_state.display_name}!")
-    st.header(f"👋 Welcome, {st.session_state.display_name}!")
