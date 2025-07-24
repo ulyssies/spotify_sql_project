@@ -1,3 +1,4 @@
+
 import os
 import streamlit as st
 import sqlite3
@@ -12,10 +13,6 @@ from spotipy.oauth2 import SpotifyOAuth
 from secrets_handler import SPOTIPY_CLIENT_ID, SPOTIPY_CLIENT_SECRET, SPOTIPY_REDIRECT_URI
 
 st.set_page_config(page_title="Spotify Statistics Visualizer", layout="centered")
-
-# Always clear Spotify token cache on fresh app start
-if os.path.exists(".cache"):
-    os.remove(".cache")
 
 # Session state initialization
 if "sp" not in st.session_state:
@@ -36,12 +33,10 @@ if st.session_state.sp is None:
         client_secret=SPOTIPY_CLIENT_SECRET,
         redirect_uri=SPOTIPY_REDIRECT_URI,
         scope="user-read-private user-top-read user-read-recently-played",
-        cache_path=".cache",
-        show_dialog=True
+        cache_path=".cache"
     )
 
     token_info = auth_manager.get_cached_token()
-
     if token_info:
         try:
             sp = spotipy.Spotify(auth_manager=auth_manager)
@@ -56,20 +51,20 @@ if st.session_state.sp is None:
         auth_url = auth_manager.get_authorize_url()
         st.markdown("<h1 style='text-align: center;'>Spotify Statistics Visualizer</h1>", unsafe_allow_html=True)
         st.markdown(
-            f'''
+            f"""
             <div style='background-color: rgba(0,0,0,0.6); padding: 2rem; border-radius: 1rem; text-align: center;'>
                 <h1 style='font-size: 2.5rem;'>
                     <span style='font-weight: bold;'>🌷 SpotYourVibe</span>
                 </h1>
                 <p>This is a personalized Spotify stats visualizer.<br>Log in to explore your top tracks, genres, and discover new music.</p>
-                <a href="{auth_url}">
+                <a href='{auth_url}'>
                     <button style='margin-top: 1rem; background-color: #1DB954; border: none; color: white; padding: 0.75rem 1.5rem; border-radius: 30px; font-weight: bold; font-size: 1rem;'>
                         🔐 Log in with Spotify
                     </button>
                 </a>
                 <p style='margin-top: 1rem; font-size: 0.85rem; color: gray;'>Spotify login required.</p>
             </div>
-            ''',
+            """,
             unsafe_allow_html=True
         )
         st.stop()
@@ -85,8 +80,6 @@ with col1:
     load_clicked = st.button("🔄 Load My Spotify Data")
 with col3:
     if st.button("🚪 Log out"):
-        if os.path.exists(".cache"):
-            os.remove(".cache")
         st.session_state.clear()
         st.rerun()
 
