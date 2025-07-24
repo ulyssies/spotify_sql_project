@@ -42,18 +42,15 @@ if st.session_state.sp is None:
         cache_path=".cache",
     )
 
-    token_info = auth_manager.get_cached_token()
-
-    if token_info:
+    if auth_manager.get_cached_token():
         try:
             sp = spotipy.Spotify(auth_manager=auth_manager)
             user = sp.current_user()
             st.session_state.sp = sp
             st.session_state.username = user["id"]
             st.session_state.display_name = user.get("display_name", "User")
-            st.rerun()
-        except Exception as e:
-            st.error("Spotify login failed. Please refresh and try again.")
+        except:
+            st.error("Spotify login failed. Please clear cookies or refresh.")
             st.stop()
     else:
         auth_url = auth_manager.get_authorize_url()
@@ -65,12 +62,11 @@ if st.session_state.sp is None:
                     <span style='font-weight: bold;'>🌷 SpotYourVibe</span>
                 </h1>
                 <p>This is a personalized Spotify stats visualizer.<br>Log in to explore your top tracks, genres, and discover new music.</p>
-                <form action="" method="get">
-                    <button type="submit" style='margin-top: 1rem; background-color: #1DB954; border: none; color: white; padding: 0.75rem 1.5rem; border-radius: 30px; font-weight: bold; font-size: 1rem;'>
+                <a href='{auth_url}'>
+                    <button style='margin-top: 1rem; background-color: #1DB954; border: none; color: white; padding: 0.75rem 1.5rem; border-radius: 30px; font-weight: bold; font-size: 1rem;'>
                         🔐 Log in with Spotify
                     </button>
-                    <input type="hidden" name="auth_url" value="{auth_url}" />
-                </form>
+                </a>
                 <p style='margin-top: 1rem; font-size: 0.85rem; color: gray;'>🔐 Spotify login required — no account data is stored.</p>
             </div>
             """,
@@ -78,10 +74,9 @@ if st.session_state.sp is None:
         )
         st.stop()
 
-# Logged in
+# At this point, user is logged in
 sp = st.session_state.sp
 username = st.session_state.username
-display_name = st.session_state.display_name
 
 # Buttons and Dropdown aligned
 col1, col2, col3 = st.columns([1, 3, 1])
