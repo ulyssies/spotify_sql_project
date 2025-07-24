@@ -72,12 +72,16 @@ sp = st.session_state.sp
 username = st.session_state.username
 display_name = st.session_state.display_name
 
-# Logout button
-if st.button("🚪 Log out"):
-    st.session_state.clear()
-    st.rerun()
+# 🔘 Buttons Row (Load + Logout)
+col1, col2 = st.columns([1, 1])
+with col1:
+    load_clicked = st.button("🔄 Load My Spotify Data")
+with col2:
+    if st.button("🚪 Log out"):
+        st.session_state.clear()
+        st.rerun()
 
-# Term selection
+# 📅 Term selection dropdown
 term_options = {
     "Last 4 Weeks": "short_term",
     "Last 6 Months": "medium_term",
@@ -87,7 +91,7 @@ term_label = st.selectbox("Top Tracks for:", list(term_options.keys()))
 term = term_options[term_label]
 
 # Load data if button clicked and not already fetched
-if st.button("🔄 Load My Spotify Data"):
+if load_clicked:
     with st.spinner("Fetching your Spotify data..."):
         user = st.session_state.sp.current_user()
         st.session_state.username = user["id"]
