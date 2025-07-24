@@ -58,7 +58,7 @@ if st.session_state.sp is None:
             f"""
             <div style='background-color: rgba(0,0,0,0.6); padding: 2rem; border-radius: 1rem; text-align: center;'>
                 <h1 style='font-size: 2.5rem;'>
-                    <span style='font-weight: bold;'>🎷 SpotYourVibe</span>
+                    <span style='font-weight: bold;'>🌷 SpotYourVibe</span>
                 </h1>
                 <p>This is a personalized Spotify stats visualizer.<br>Log in to explore your top tracks, genres, and discover new music.</p>
                 <a href='{auth_url}'>
@@ -66,7 +66,7 @@ if st.session_state.sp is None:
                         🔐 Log in with Spotify
                     </button>
                 </a>
-                <p style='margin-top: 1rem; font-size: 0.85rem; color: gray;'>🔒 Spotify login required — no account data is stored.</p>
+                <p style='margin-top: 1rem; font-size: 0.85rem; color: gray;'>🔐 Spotify login required — no account data is stored.</p>
             </div>
             """,
             unsafe_allow_html=True
@@ -80,7 +80,7 @@ display_name = st.session_state.display_name
 
 # Side-by-side buttons aligned to dropdown width
 with st.container():
-    col1, col2 = st.columns([1, 1])
+    col1, col_spacer, col2 = st.columns([2, 6, 2])
     with col1:
         load_clicked = st.button("🔄 Load My Spotify Data")
     with col2:
@@ -123,7 +123,6 @@ if load_clicked:
 
     st.success(f"✅ Data loaded for {st.session_state.display_name}!")
     st.header(f"👋 Welcome, {st.session_state.display_name}!")
-
 
 # Display data if loaded
 if st.session_state.data_loaded and not st.session_state.df.empty:
