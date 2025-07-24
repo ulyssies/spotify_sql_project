@@ -5,9 +5,11 @@ def extract_and_store_top_tracks(sp, username, db_path=None):
     if db_path is None:
         db_path = f"spotify_{username}.db"
 
-    conn = sqlite3.connect(db_path)  
-    cursor = conn.cursor()          
+    # ✅ Fix: connect to the user's personalized DB
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
 
+    # Create table if it doesn't exist
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS top_tracks (
             username    TEXT,
