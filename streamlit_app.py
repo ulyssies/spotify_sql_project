@@ -85,9 +85,9 @@ if st.button("🔄 Load My Spotify Data"):
 
         conn = sqlite3.connect(user_db)
         st.session_state.df = pd.read_sql_query(
-            "SELECT track_name, artist_name, genre FROM top_tracks WHERE term = ? ORDER BY play_count ASC",
+            "SELECT track_name, artist_name, genre FROM top_tracks WHERE term = ? AND username = ? ORDER BY play_count ASC",
             conn,
-            params=(term,)
+            params=(term, username)
         )
         conn.close()
         st.session_state.data_loaded = True
@@ -153,8 +153,9 @@ if st.session_state.data_loaded and not st.session_state.df.empty:
 
             if term != "long_term":
                 long_df = pd.read_sql_query(
-                    "SELECT genre FROM top_tracks WHERE genre != 'Unknown' AND term = 'long_term'",
-                    sqlite3.connect(user_db)
+                    "SELECT genre FROM top_tracks WHERE genre != 'Unknown' AND term = 'long_term' AND username = ?",
+                    sqlite3.connect(user_db),
+                    params=(username,)
                 )
                 long_genres = [g.strip() for g in long_df["genre"] for g in g.split(',') if g.strip()]
                 long_counts = Counter(long_genres)
@@ -174,20 +175,19 @@ if st.session_state.data_loaded and not st.session_state.df.empty:
                     st.markdown(f"- {change}")
         else:
             st.info("No genre data available for this term.")
-else:
-    st.info("Click '🔄 Load My Spotify Data' to view your personalized stats.")
-if term != "All Time":
+
+# ✅ Prevent genre-diff block from running when df is not available
+if st.session_state.data_loaded and not st.session_state.df.empty and term != "long_term":
     try:
-        # Load long_term data from the user's specific database
         long_df = pd.read_sql_query(
             """
             SELECT genre FROM top_tracks
-            WHERE genre != 'Unknown' AND term = 'long_term' AND track_id IN (
-                SELECT track_id FROM top_tracks WHERE term = ?
+            WHERE genre != 'Unknown' AND term = 'long_term' AND username = ? AND track_id IN (
+                SELECT track_id FROM top_tracks WHERE term = ? AND username = ?
             )
             """,
             sqlite3.connect(user_db),
-            params=(term_options[term_label],)
+            params=(username, term, username)
         )
 
         long_genres = [g.strip() for g in long_df["genre"] if g and g != "Unknown" for g in g.split(',')]
