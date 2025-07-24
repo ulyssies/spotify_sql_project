@@ -1,3 +1,4 @@
+
 import os
 import streamlit as st
 import sqlite3
@@ -24,6 +25,16 @@ if "username" not in st.session_state:
     st.session_state.username = None
 if "display_name" not in st.session_state:
     st.session_state.display_name = None
+if "logout_triggered" not in st.session_state:
+    st.session_state.logout_triggered = False
+
+# Logout logic
+if st.session_state.logout_triggered:
+    if os.path.exists(".cache"):
+        os.remove(".cache")
+    st.session_state.clear()
+    st.session_state.logout_triggered = False
+    st.rerun()
 
 # Spotify login
 if st.session_state.sp is None:
@@ -33,8 +44,8 @@ if st.session_state.sp is None:
         redirect_uri=SPOTIPY_REDIRECT_URI,
         scope="user-read-private user-top-read user-read-recently-played",
         cache_path=".cache",
+        open_browser=False,
     )
-
     token_info = auth_manager.get_cached_token()
 
     if token_info:
@@ -49,16 +60,10 @@ if st.session_state.sp is None:
             st.stop()
     else:
         auth_url = auth_manager.get_authorize_url()
-        st.markdown("""
-            <div style='text-align:center;'>
-                <h1 style='font-size:2.5rem;'>🌷 SpotYourVibe</h1>
-                <p>Log in to explore your top Spotify tracks and genres!</p>
-                <a href='""" + auth_url + """'>
-                    <button style='margin-top:1rem; background-color:#1DB954; border:none; color:white; padding:0.75rem 1.5rem; border-radius:30px; font-weight:bold; font-size:1rem;'>🔐 Log in with Spotify</button>
-                </a>
-                <p style='margin-top:1rem; font-size:0.85rem; color:gray;'>No data stored, ever.</p>
-            </div>
-        """, unsafe_allow_html=True)
+        st.markdown("<h1 style='text-align: center;'>🌷 SpotYourVibe</h1>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align: center;'>Log in to explore your top Spotify tracks and genres!</p>", unsafe_allow_html=True)
+        st.markdown(f"<div style='text-align: center;'><a href='{auth_url}'><button style='background-color: #1DB954; border: none; padding: 0.75rem 1.5rem; border-radius: 30px; color: white; font-size: 1rem;'>🔐 Log in with Spotify</button></a></div>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align: center; font-size: 0.85rem; color: gray;'>No data stored, ever.</p>", unsafe_allow_html=True)
         st.stop()
 
 # Logged in
@@ -72,9 +77,7 @@ with col1:
     load_clicked = st.button("🔄 Load My Spotify Data")
 with col3:
     if st.button("🚪 Log out"):
-        if os.path.exists(".cache"):
-            os.remove(".cache")
-        st.session_state.clear()
+        st.session_state.logout_triggered = True
         st.rerun()
 
 # Dropdown Centered
@@ -89,11 +92,7 @@ term = term_options[term_label]
 # Load Data Logic
 if load_clicked:
     with st.spinner("Fetching your Spotify data..."):
-        user = sp.current_user()
-        st.session_state.username = user["id"]
-        st.session_state.display_name = user.get("display_name", "User")
         extract_and_store_top_tracks(sp, username)
-
         conn = sqlite3.connect("spotify_data.db")
         st.session_state.df = pd.read_sql_query(
             "SELECT track_name, artist_name, genre FROM top_tracks WHERE username = ? AND term = ?",
@@ -101,8 +100,8 @@ if load_clicked:
             params=(username, term)
         )
         conn.close()
-
         st.session_state.data_loaded = True
+
     st.success(f"✅ Data loaded for {display_name}!")
     st.header(f"👋 Welcome, {display_name}!")
 
@@ -135,16 +134,16 @@ if st.session_state.data_loaded:
                     url = s.get("url", "")
 
                     with st.container():
-                        col1, col2 = st.columns([1, 6])
-                        with col1:
+                        c1, c2 = st.columns([1, 6])
+                        with c1:
                             if image_url:
                                 st.image(image_url, width=96)
                             else:
                                 st.markdown("🎵")
-                        with col2:
-                            st.markdown(f"**{name}**  ")
-                            st.markdown(f"*by {artist}*  ")
-                            st.markdown(f"💬 [{name} by {artist} — Listen on Spotify]({url})")
+                        with c2:
+                            st.markdown(f"**{name}**")
+                            st.markdown(f"*by {artist}*")
+                            st.markdown(f"[Listen on Spotify]({url})")
                     st.markdown("---")
             else:
                 st.info("No song suggestions available. Try refreshing your data.")
@@ -176,31 +175,6 @@ if st.session_state.data_loaded:
                     height=500
                 )
                 st.plotly_chart(fig, use_container_width=True)
-
-                if term != "long_term":
-                    long_df = pd.read_sql_query(
-                        "SELECT genre FROM top_tracks WHERE genre != 'Unknown' AND term = 'long_term' AND username = ?",
-                        sqlite3.connect("spotify_data.db"),
-                        params=(username,)
-                    )
-                    long_genres = []
-                    for g in long_df["genre"]:
-                        long_genres += [x.strip() for x in g.split(',') if x.strip()]
-                    long_counts = Counter(long_genres)
-                    long_total = sum(long_counts.values())
-                    long_pct = {k: v / long_total * 100 for k, v in long_counts.items()}
-
-                    change_summary = []
-                    for genre in genre_df["Genre"]:
-                        current = genre_df[genre_df["Genre"] == genre]["Percentage"].values[0]
-                        past = long_pct.get(genre, 0)
-                        delta = current - past
-                        symbol = "🔺" if delta > 0 else ("🔻" if delta < 0 else "➖")
-                        change_summary.append(f"{symbol} {genre}: {delta:+.1f}%")
-
-                    st.markdown("**Genre Change Compared to All Time:**")
-                    for change in change_summary:
-                        st.markdown(f"- {change}")
             else:
                 st.info("No genre data available for this term.")
 else:
