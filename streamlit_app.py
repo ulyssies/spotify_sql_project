@@ -10,6 +10,7 @@ import plotly.graph_objects as go
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 from secrets_handler import SPOTIPY_CLIENT_ID, SPOTIPY_CLIENT_SECRET, SPOTIPY_REDIRECT_URI
+from spotipy.exceptions import SpotifyException
 
 st.set_page_config(page_title="Spotify Statistics Visualizer", layout="centered")
 
@@ -18,6 +19,8 @@ if "sp" not in st.session_state:
     st.session_state.sp = None
 if "data_loaded" not in st.session_state:
     st.session_state.data_loaded = False
+if "df" not in st.session_state:
+    st.session_state.df = pd.DataFrame()
 if "username" not in st.session_state:
     st.session_state.username = None
 if "display_name" not in st.session_state:
@@ -33,19 +36,13 @@ if st.session_state.sp is None:
         cache_path=".cache",
     )
 
-    token_info = auth_manager.get_cached_token()
-
-    if token_info:
-        try:
-            sp = spotipy.Spotify(auth_manager=auth_manager)
-            user = sp.current_user()
-            st.session_state.sp = sp
-            st.session_state.username = user["id"]
-            st.session_state.display_name = user.get("display_name", "User")
-        except:
-            st.error("Spotify login failed. Please refresh and try again.")
-            st.stop()
-    else:
+    try:
+        sp = spotipy.Spotify(auth_manager=auth_manager)
+        user = sp.current_user()
+        st.session_state.sp = sp
+        st.session_state.username = user["id"]
+        st.session_state.display_name = user.get("display_name", "User")
+    except SpotifyException:
         auth_url = auth_manager.get_authorize_url()
         st.markdown("<h1 style='text-align: center;'>Spotify Statistics Visualizer</h1>", unsafe_allow_html=True)
         st.markdown(
@@ -66,6 +63,7 @@ if st.session_state.sp is None:
             unsafe_allow_html=True
         )
         st.stop()
+
 
 # Logged in
 sp = st.session_state.sp
