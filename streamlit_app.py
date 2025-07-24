@@ -25,18 +25,18 @@ if "username" not in st.session_state:
 if "display_name" not in st.session_state:
     st.session_state.display_name = None
 
-# Spotify authentication setup
-auth_manager = SpotifyOAuth(
-    client_id=SPOTIPY_CLIENT_ID,
-    client_secret=SPOTIPY_CLIENT_SECRET,
-    redirect_uri=SPOTIPY_REDIRECT_URI,
-    scope="user-read-private user-top-read user-read-recently-played",
-    cache_path=".cache",
-)
-
-# Check for token
+# Spotify login
 if st.session_state.sp is None:
+    auth_manager = SpotifyOAuth(
+        client_id=SPOTIPY_CLIENT_ID,
+        client_secret=SPOTIPY_CLIENT_SECRET,
+        redirect_uri=SPOTIPY_REDIRECT_URI,
+        scope="user-read-private user-top-read user-read-recently-played",
+        cache_path=".cache",
+    )
+
     token_info = auth_manager.get_cached_token()
+
     if token_info:
         sp = spotipy.Spotify(auth_manager=auth_manager)
         user = sp.current_user()
@@ -70,11 +70,8 @@ sp = st.session_state.sp
 username = st.session_state.username
 display_name = st.session_state.display_name
 
-# Side-by-side buttons aligned to dropdown width
-with st.container():
-    col1, col_spacer, col2 = st.columns([2, 6, 2])
-    with col1:
-        load_clicked = st.button("🔄 Load My Spotify Data")
+# Load button
+load_clicked = st.button("🔄 Load My Spotify Data", help="Click to fetch your personalized stats")
 
 # Dropdown
 term_options = {
@@ -88,11 +85,27 @@ term = term_options[term_label]
 # Load Data Logic
 if load_clicked:
     with st.spinner("Fetching your Spotify data..."):
-        extract_and_store_top_tracks(sp, username)
-        st.session_state.data_loaded = True
-    st.success(f"✅ Data loaded for {display_name}!")
-    st.header(f"👋 Welcome, {display_name}!")
+        user = st.session_state.sp.current_user()
+        st.session_state.username = user["id"]
+        st.session_state.display_name = user.get("display_name", "User")
+        extract_and_store_top_tracks(st.session_state.sp, st.session_state.username)
 
+        conn = sqlite3.connect("spotify_data.db")
+        st.session_state.df = pd.read_sql_query(
+            "SELECT track_name, artist_name, genre "
+            "FROM top_tracks "
+            "WHERE term = ? AND username = ? "
+            "ORDER BY play_count ASC",
+            conn,
+            params=(term, st.session_state.username)
+        )
+        conn.close()
+
+        st.session_state.data_loaded = True
+
+    st.success(f"✅ Data loaded for {st.session_state.display_name}!")
+    st.header(f"👋 Welcome, {st.session_state.display_name}!")
+    
 # Display data if loaded
 if st.session_state.data_loaded:
     conn = sqlite3.connect("spotify_data.db")
