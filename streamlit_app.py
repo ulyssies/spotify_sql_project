@@ -39,7 +39,6 @@ if st.session_state.sp is None:
     if "code" in query_params:
         try:
             code = query_params["code"][0]
-            # Safe usage, no deprecated call
             sp = spotipy.Spotify(auth_manager=auth_manager)
             user = sp.current_user()
             st.session_state.sp = sp
@@ -57,7 +56,7 @@ if st.session_state.sp is None:
             <div style='background-color: rgba(0,0,0,0.6); padding: 2rem; border-radius: 1rem; text-align: center;'>
                 <h1 style='font-size: 2.5rem;'>
                     <span style='font-weight: bold;'>
-                        🎧 SpotYourVibe
+                        🎷 SpotYourVibe
                     </span>
                 </h1>
                 <p>This is a personalized Spotify stats visualizer.<br>Log in to explore your top tracks, genres, and discover new music.</p>
@@ -78,7 +77,6 @@ sp = st.session_state.sp
 username = st.session_state.username
 display_name = st.session_state.display_name
 
-# Only show display name after pressing "Load My Spotify Data"
 term_options = {
     "Last 4 Weeks": "short_term",
     "Last 6 Months": "medium_term",
@@ -87,18 +85,44 @@ term_options = {
 term_label = st.selectbox("Top Tracks for:", list(term_options.keys()))
 term = term_options[term_label]
 
-# Button to load data
-if st.button("🔄 Load My Spotify Data"):
-    with st.spinner("Fetching your Spotify data..."):
-        # 1) Re-fetch the current Spotify user (so it's never stale)
-        user = st.session_state.sp.current_user()
-        st.session_state.username     = user["id"]                         # DB key
-        st.session_state.display_name = user.get("display_name", "User")     # UI
+# Auto-refresh if dropdown selection changes
+if "last_term" not in st.session_state:
+    st.session_state.last_term = term
 
-        # 2) Extract & store *their* top tracks
+if term != st.session_state.last_term:
+    with st.spinner("Loading your data for selected time period..."):
+        user = st.session_state.sp.current_user()
+        st.session_state.username = user["id"]
+        st.session_state.display_name = user.get("display_name", "User")
+
         extract_and_store_top_tracks(st.session_state.sp, st.session_state.username)
 
-        # 3) Pull only *their* data for the selected term
+        conn = sqlite3.connect("spotify_data.db")
+        st.session_state.df = pd.read_sql_query(
+            "SELECT track_name, artist_name, genre "
+            "FROM top_tracks "
+            "WHERE term = ? AND username = ? "
+            "ORDER BY play_count ASC",
+            conn,
+            params=(term, st.session_state.username)
+        )
+        conn.close()
+
+        st.session_state.data_loaded = True
+        st.session_state.last_term = term
+
+    st.success(f"✅ Data loaded for {st.session_state.display_name}!")
+    st.header(f"👋 Welcome, {st.session_state.display_name}!")
+
+# Manual refresh button
+if st.button("🔄 Load My Spotify Data"):
+    with st.spinner("Fetching your Spotify data..."):
+        user = st.session_state.sp.current_user()
+        st.session_state.username = user["id"]
+        st.session_state.display_name = user.get("display_name", "User")
+
+        extract_and_store_top_tracks(st.session_state.sp, st.session_state.username)
+
         conn = sqlite3.connect("spotify_data.db")
         st.session_state.df = pd.read_sql_query(
             "SELECT track_name, artist_name, genre "
@@ -112,7 +136,6 @@ if st.button("🔄 Load My Spotify Data"):
 
         st.session_state.data_loaded = True
 
-    # 4) Show success + greeting with *their* display name
     st.success(f"✅ Data loaded for {st.session_state.display_name}!")
     st.header(f"👋 Welcome, {st.session_state.display_name}!")
 
