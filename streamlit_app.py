@@ -49,24 +49,10 @@ if st.session_state.sp is None:
             st.stop()
     else:
         auth_url = auth_manager.get_authorize_url()
-        st.markdown("<h1 style='text-align: center;'>Spotify Statistics Visualizer</h1>", unsafe_allow_html=True)
-        st.markdown(
-            f"""
-            <div style='background-color: rgba(0,0,0,0.6); padding: 2rem; border-radius: 1rem; text-align: center;'>
-                <h1 style='font-size: 2.5rem;'>
-                    <span style='font-weight: bold;'>🌷 SpotYourVibe</span>
-                </h1>
-                <p>This is a personalized Spotify stats visualizer.<br>Log in to explore your top tracks, genres, and discover new music.</p>
-                <a href='{auth_url}'>
-                    <button style='margin-top: 1rem; background-color: #1DB954; border: none; color: white; padding: 0.75rem 1.5rem; border-radius: 30px; font-weight: bold; font-size: 1rem;'>
-                        🔐 Log in with Spotify
-                    </button>
-                </a>
-                <p style='margin-top: 1rem; font-size: 0.85rem; color: gray;'>🔐 Spotify login required — no account data is stored.</p>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+        st.markdown("## 🌷 SpotYourVibe")
+        st.markdown("This is a personalized Spotify stats visualizer. Log in to explore your top tracks, genres, and discover new music.")
+        st.link_button("🔐 Log in with Spotify", auth_url)
+        st.info("🔐 Spotify login required — no account data is stored.")
         st.stop()
 
 # Logged in
