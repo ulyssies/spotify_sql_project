@@ -24,13 +24,6 @@ if "username" not in st.session_state:
     st.session_state.username = None
 if "display_name" not in st.session_state:
     st.session_state.display_name = None
-if "just_logged_out" not in st.session_state:
-    st.session_state.just_logged_out = False
-
-# Handle logout rerun loop
-if st.session_state.just_logged_out:
-    st.session_state.just_logged_out = False
-    st.stop()
 
 # Spotify login
 if st.session_state.sp is None:
@@ -42,7 +35,9 @@ if st.session_state.sp is None:
         cache_path=".cache",
     )
 
-    if auth_manager.get_cached_token():
+    token_info = auth_manager.get_cached_token()
+
+    if token_info:
         try:
             sp = spotipy.Spotify(auth_manager=auth_manager)
             user = sp.current_user()
@@ -50,7 +45,7 @@ if st.session_state.sp is None:
             st.session_state.username = user["id"]
             st.session_state.display_name = user.get("display_name", "User")
         except:
-            st.error("Spotify login failed. Please clear cookies or refresh.")
+            st.error("Spotify login failed. Please refresh and try again.")
             st.stop()
     else:
         auth_url = auth_manager.get_authorize_url()
@@ -74,31 +69,29 @@ if st.session_state.sp is None:
         )
         st.stop()
 
-# At this point, user is logged in
+# Logged in
 sp = st.session_state.sp
 username = st.session_state.username
+display_name = st.session_state.display_name
 
-# Buttons and Dropdown aligned
-col1, col2, col3 = st.columns([1, 3, 1])
+# Buttons + Dropdown Layout
+col1, col2, col3 = st.columns([2, 6, 2])
 with col1:
     load_clicked = st.button("🔄 Load My Spotify Data")
 with col3:
-    logout_clicked = st.button("🚪 Log out")
+    if st.button("🚪 Log out"):
+        if os.path.exists(".cache"):
+            os.remove(".cache")
+        st.session_state.clear()
+        st.rerun()
 
-if logout_clicked:
-    if os.path.exists(".cache"):
-        os.remove(".cache")
-    st.session_state.clear()
-    st.session_state.just_logged_out = True
-    st.rerun()
-
-# Dropdown
+# Dropdown Centered
 term_options = {
     "Last 4 Weeks": "short_term",
     "Last 6 Months": "medium_term",
     "All Time": "long_term"
 }
-term_label = st.selectbox("Top Tracks for:", list(term_options.keys()))
+term_label = st.selectbox("Top Tracks for:", list(term_options.keys()), index=0)
 term = term_options[term_label]
 
 # Load Data Logic
@@ -122,10 +115,9 @@ if load_clicked:
     st.success(f"✅ Data loaded for {st.session_state.display_name}!")
     st.header(f"👋 Welcome, {st.session_state.display_name}!")
 
-# Time selection
+# Display Data
 if st.session_state.data_loaded:
     df = st.session_state.df
-
     if not df.empty:
         tab1, tab2 = st.tabs(["🎵 Top Tracks", "📊 Genre Chart"])
 
