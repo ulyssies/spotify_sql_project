@@ -9,6 +9,7 @@ import plotly.graph_objects as go
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 from secrets_handler import SPOTIPY_CLIENT_ID, SPOTIPY_CLIENT_SECRET, SPOTIPY_REDIRECT_URI
+import os
 
 st.set_page_config(page_title="Spotify Statistics Visualizer", layout="centered")
 
@@ -72,16 +73,18 @@ sp = st.session_state.sp
 username = st.session_state.username
 display_name = st.session_state.display_name
 
-# 🔘 Buttons Row (Load + Logout)
-col1, col2 = st.columns([1, 1])
+# Buttons row: load (left), logout (right)
+col1, col2, col3 = st.columns([4, 2, 4])
 with col1:
     load_clicked = st.button("🔄 Load My Spotify Data")
-with col2:
+with col3:
     if st.button("🚪 Log out"):
+        if os.path.exists(".cache"):
+            os.remove(".cache")
         st.session_state.clear()
         st.rerun()
 
-# 📅 Term selection dropdown
+# Time period dropdown
 term_options = {
     "Last 4 Weeks": "short_term",
     "Last 6 Months": "medium_term",
@@ -90,7 +93,7 @@ term_options = {
 term_label = st.selectbox("Top Tracks for:", list(term_options.keys()))
 term = term_options[term_label]
 
-# Load data if button clicked and not already fetched
+# Load data if needed
 if load_clicked:
     with st.spinner("Fetching your Spotify data..."):
         user = st.session_state.sp.current_user()
