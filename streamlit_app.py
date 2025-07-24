@@ -13,9 +13,6 @@ from secrets_handler import SPOTIPY_CLIENT_ID, SPOTIPY_CLIENT_SECRET, SPOTIPY_RE
 
 st.set_page_config(page_title="Spotify Statistics Visualizer", layout="centered")
 
-# Clear previous session every time app starts
-st.session_state.clear()
-
 # Session state initialization
 if "sp" not in st.session_state:
     st.session_state.sp = None
@@ -29,58 +26,60 @@ if "display_name" not in st.session_state:
     st.session_state.display_name = None
 
 # Spotify login
-auth_manager = SpotifyOAuth(
-    client_id=SPOTIPY_CLIENT_ID,
-    client_secret=SPOTIPY_CLIENT_SECRET,
-    redirect_uri=SPOTIPY_REDIRECT_URI,
-    scope="user-read-private user-top-read user-read-recently-played",
-    cache_path=".cache",
-)
-
-token_info = auth_manager.get_cached_token()
-
-if not token_info:
-    auth_url = auth_manager.get_authorize_url()
-    st.markdown("<h1 style='text-align: center;'>Spotify Statistics Visualizer</h1>", unsafe_allow_html=True)
-    st.markdown(
-        f"""
-        <div style='background-color: rgba(0,0,0,0.6); padding: 2rem; border-radius: 1rem; text-align: center;'>
-            <h1 style='font-size: 2.5rem;'>
-                <span style='font-weight: bold;'>🌷 SpotYourVibe</span>
-            </h1>
-            <p>This is a personalized Spotify stats visualizer.<br>Log in to explore your top tracks, genres, and discover new music.</p>
-            <a href='{auth_url}'>
-                <button style='margin-top: 1rem; background-color: #1DB954; border: none; color: white; padding: 0.75rem 1.5rem; border-radius: 30px; font-weight: bold; font-size: 1rem;'>
-                    🔐 Log in with Spotify
-                </button>
-            </a>
-            <p style='margin-top: 1rem; font-size: 0.85rem; color: gray;'>🔐 Spotify login required — no account data is stored.</p>
-        </div>
-        """,
-        unsafe_allow_html=True
+if st.session_state.sp is None:
+    auth_manager = SpotifyOAuth(
+        client_id=SPOTIPY_CLIENT_ID,
+        client_secret=SPOTIPY_CLIENT_SECRET,
+        redirect_uri=SPOTIPY_REDIRECT_URI,
+        scope="user-read-private user-top-read user-read-recently-played",
+        cache_path=".cache",
     )
-    st.stop()
+
+    token_info = auth_manager.get_cached_token()
+
+    if token_info:
+        sp = spotipy.Spotify(auth_manager=auth_manager)
+        user = sp.current_user()
+        st.session_state.sp = sp
+        st.session_state.username = user["id"]
+        st.session_state.display_name = user.get("display_name", "User")
+    else:
+        auth_url = auth_manager.get_authorize_url()
+        st.markdown("<h1 style='text-align: center;'>Spotify Statistics Visualizer</h1>", unsafe_allow_html=True)
+        st.markdown(
+            f"""
+            <div style='background-color: rgba(0,0,0,0.6); padding: 2rem; border-radius: 1rem; text-align: center;'>
+                <h1 style='font-size: 2.5rem;'>
+                    <span style='font-weight: bold;'>🌷 SpotYourVibe</span>
+                </h1>
+                <p>This is a personalized Spotify stats visualizer.<br>Log in to explore your top tracks, genres, and discover new music.</p>
+                <a href='{auth_url}'>
+                    <button style='margin-top: 1rem; background-color: #1DB954; border: none; color: white; padding: 0.75rem 1.5rem; border-radius: 30px; font-weight: bold; font-size: 1rem;'>
+                        🔐 Log in with Spotify
+                    </button>
+                </a>
+                <p style='margin-top: 1rem; font-size: 0.85rem; color: gray;'>🔐 Spotify login required — no account data is stored.</p>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+        st.stop()
 
 # Logged in
-sp = spotipy.Spotify(auth_manager=auth_manager)
-user = sp.current_user()
-st.session_state.sp = sp
-st.session_state.username = user["id"]
-st.session_state.display_name = user.get("display_name", "User")
+sp = st.session_state.sp
+username = st.session_state.username
+display_name = st.session_state.display_name
 
-# Side-by-side button for Load My Spotify Data only
-with st.container():
-    st.markdown("""
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-            <form action="#">
-                <button name="load_data" type="submit" style="padding: 0.5rem 1rem; font-weight: bold; font-size: 1rem; background-color: #1DB954; border: none; color: white; border-radius: 8px;">
-                    🔄 Load My Spotify Data
-                </button>
-            </form>
-        </div>
-    """, unsafe_allow_html=True)
+st.markdown(f"## 👋 Welcome, {display_name}!")
 
-# Dropdown
+# Load button
+if st.button("🔄 Load My Spotify Data"):
+    with st.spinner("Fetching your Spotify data..."):
+        extract_and_store_top_tracks(sp, username)
+        st.session_state.data_loaded = True
+        st.success(f"✅ Data loaded for {display_name}!")
+
+# Time selection
 term_options = {
     "Last 4 Weeks": "short_term",
     "Last 6 Months": "medium_term",
@@ -89,30 +88,18 @@ term_options = {
 term_label = st.selectbox("Top Tracks for:", list(term_options.keys()))
 term = term_options[term_label]
 
-# Load Data Logic
-if st.query_params.get("load_data") is not None:
-    with st.spinner("Fetching your Spotify data..."):
-        extract_and_store_top_tracks(st.session_state.sp, st.session_state.username)
+# Load user-specific data if available
+df = pd.DataFrame()
+if st.session_state.data_loaded:
+    conn = sqlite3.connect("spotify_data.db")
+    df = pd.read_sql_query(
+        "SELECT track_name, artist_name, genre FROM top_tracks WHERE username = ? AND term = ?",
+        conn,
+        params=(username, term)
+    )
+    conn.close()
 
-        conn = sqlite3.connect("spotify_data.db")
-        st.session_state.df = pd.read_sql_query(
-            "SELECT track_name, artist_name, genre "
-            "FROM top_tracks "
-            "WHERE term = ? AND username = ? "
-            "ORDER BY play_count ASC",
-            conn,
-            params=(term, st.session_state.username)
-        )
-        conn.close()
-
-        st.session_state.data_loaded = True
-
-    st.success(f"✅ Data loaded for {st.session_state.display_name}!")
-    st.header(f"👋 Welcome, {st.session_state.display_name}!")
-
-# Display data if loaded
-if st.session_state.data_loaded and not st.session_state.df.empty:
-    df = st.session_state.df
+if not df.empty:
     tab1, tab2 = st.tabs(["🎵 Top Tracks", "📊 Genre Chart"])
 
     with tab1:
@@ -184,7 +171,7 @@ if st.session_state.data_loaded and not st.session_state.df.empty:
                 long_df = pd.read_sql_query(
                     "SELECT genre FROM top_tracks WHERE genre != 'Unknown' AND term = 'long_term' AND username = ?",
                     sqlite3.connect("spotify_data.db"),
-                    params=(st.session_state.username,)
+                    params=(username,)
                 )
                 long_genres = []
                 for g in long_df["genre"]:
@@ -207,5 +194,4 @@ if st.session_state.data_loaded and not st.session_state.df.empty:
         else:
             st.info("No genre data available for this term.")
 else:
-    if not st.session_state.data_loaded:
-        st.info("Click '🔄 Load My Spotify Data' to view your personalized stats.")
+    st.info("Click '🔄 Load My Spotify Data' to view your personalized stats.")
