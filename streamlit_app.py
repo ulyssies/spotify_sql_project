@@ -11,13 +11,14 @@ import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 from secrets_handler import SPOTIPY_CLIENT_ID, SPOTIPY_CLIENT_SECRET, SPOTIPY_REDIRECT_URI
 
-# Always clear Spotify token cache on app load
+# Always clear Spotify token cache and session state on fresh app start
 if os.path.exists(".cache"):
     os.remove(".cache")
+st.session_state.clear()
 
 st.set_page_config(page_title="Spotify Statistics Visualizer", layout="centered")
 
-# Session state
+# Session state initialization
 if "sp" not in st.session_state:
     st.session_state.sp = None
 if "data_loaded" not in st.session_state:
@@ -29,47 +30,41 @@ if "username" not in st.session_state:
 if "display_name" not in st.session_state:
     st.session_state.display_name = None
 
-# Force login every time
-auth_manager = SpotifyOAuth(
-    client_id=SPOTIPY_CLIENT_ID,
-    client_secret=SPOTIPY_CLIENT_SECRET,
-    redirect_uri=SPOTIPY_REDIRECT_URI,
-    scope="user-read-private user-top-read user-read-recently-played",
-    cache_path=".cache",
-)
+# Spotify login
+if st.session_state.sp is None:
+    auth_manager = SpotifyOAuth(
+        client_id=SPOTIPY_CLIENT_ID,
+        client_secret=SPOTIPY_CLIENT_SECRET,
+        redirect_uri=SPOTIPY_REDIRECT_URI,
+        scope="user-read-private user-top-read user-read-recently-played",
+        cache_path=".cache",
+    )
 
-token_info = auth_manager.get_cached_token()
-
-if token_info:
     try:
+        token_info = auth_manager.get_access_token(as_dict=False)
         sp = spotipy.Spotify(auth_manager=auth_manager)
         user = sp.current_user()
         st.session_state.sp = sp
         st.session_state.username = user["id"]
         st.session_state.display_name = user.get("display_name", "User")
     except:
-        st.error("Spotify login failed. Please refresh and try again.")
+        auth_url = auth_manager.get_authorize_url()
+        st.markdown("<h1 style='text-align: center;'>Spotify Statistics Visualizer</h1>", unsafe_allow_html=True)
+        st.markdown(f'''
+<div style='background-color: rgba(0,0,0,0.6); padding: 2rem; border-radius: 1rem; text-align: center;'>
+    <h1 style='font-size: 2.5rem;'>
+        <span style='font-weight: bold;'>🌷 SpotYourVibe</span>
+    </h1>
+    <p>This is a personalized Spotify stats visualizer.<br>Log in to explore your top tracks, genres, and discover new music.</p>
+    <a href="{auth_url}">
+        <button style='margin-top: 1rem; background-color: #1DB954; border: none; color: white; padding: 0.75rem 1.5rem; border-radius: 30px; font-weight: bold; font-size: 1rem;'>
+            🔐 Log in with Spotify
+        </button>
+    </a>
+    <p style='margin-top: 1rem; font-size: 0.85rem; color: gray;'>Spotify login required.</p>
+</div>
+''', unsafe_allow_html=True)
         st.stop()
-else:
-    auth_url = auth_manager.get_authorize_url()
-    st.markdown("<h1 style='text-align: center;'>Spotify Statistics Visualizer</h1>", unsafe_allow_html=True)
-    st.markdown(
-        f'''
-        <div style='background-color: rgba(0,0,0,0.6); padding: 2rem; border-radius: 1rem; text-align: center;'>
-            <h1 style='font-size: 2.5rem;'>
-                <span style='font-weight: bold;'>🌷 SpotYourVibe</span>
-            </h1>
-            <p>This is a personalized Spotify stats visualizer.<br>Log in to explore your top tracks, genres, and discover new music.</p>
-            <a href="{auth_url}">
-                <button style='margin-top: 1rem; background-color: #1DB954; border: none; color: white; padding: 0.75rem 1.5rem; border-radius: 30px; font-weight: bold; font-size: 1rem;'>
-                    🔐 Log in with Spotify
-                </button>
-            </a>
-        </div>
-        ''',
-        unsafe_allow_html=True
-    )
-    st.stop()
 
 # User is logged in
 sp = st.session_state.sp
