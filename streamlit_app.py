@@ -52,7 +52,7 @@ if st.session_state.sp is None:
         st.markdown("<h1 style='text-align: center;'>Spotify Statistics Visualizer</h1>", unsafe_allow_html=True)
         st.markdown(f"""
             <div style='background-color: rgba(0,0,0,0.6); padding: 2rem; border-radius: 1rem; text-align: center;'>
-                <h1 style='font-size: 2.5rem;'><span style='font-weight: bold;'>🎧 SpotYourVibe</span></h1>
+                <h1 style='font-size: 2.5rem;'><span style='font-weight: bold;'>🎿 SpotYourVibe</span></h1>
                 <p>This is a personalized Spotify stats visualizer.<br>Log in to explore your top tracks, genres, and discover new music.</p>
                 <a href='{auth_manager.get_authorize_url()}'>
                     <button style='margin-top: 1rem; background-color: #1DB954; border: none; color: white; padding: 0.75rem 1.5rem; border-radius: 30px; font-weight: bold; font-size: 1rem;'>🔐 Log in with Spotify</button>
@@ -84,17 +84,23 @@ if st.button("🔄 Load My Spotify Data"):
         extract_and_store_top_tracks(sp, username, user_db)
 
         conn = sqlite3.connect(user_db)
-        st.session_state.df = pd.read_sql_query(
-            "SELECT track_name, artist_name, genre FROM top_tracks WHERE term = ? AND username = ? ORDER BY play_count ASC",
+        df = pd.read_sql_query(
+            """
+            SELECT track_name, artist_name, genre FROM top_tracks
+            WHERE term = ? AND username = ?
+            ORDER BY play_count ASC
+            """,
             conn,
             params=(term, username)
         )
         conn.close()
+
+        st.session_state.df = df
         st.session_state.data_loaded = True
     st.success(f"✅ Data loaded for {display_name}!")
     st.header(f"👋 Welcome, {display_name}!")
 
-if st.session_state.data_loaded and not st.session_state.df.empty:
+if st.session_state.data_loaded:
     df = st.session_state.df
     tab1, tab2 = st.tabs(["🎵 Top Tracks", "📊 Genre Chart"])
 
@@ -167,7 +173,7 @@ if st.session_state.data_loaded and not st.session_state.df.empty:
                     current = genre_df[genre_df["Genre"] == genre]["Percentage"].values[0]
                     past = long_pct.get(genre, 0)
                     delta = current - past
-                    symbol = "🔺" if delta > 0 else ("🔻" if delta < 0 else "➖")
+                    symbol = "🔺" if delta > 0 else ("🔻" if delta < 0 else "⬜")
                     change_summary.append(f"{symbol} {genre}: {delta:+.1f}%")
 
                 st.markdown("**Genre Change Compared to All Time:**")
@@ -175,40 +181,3 @@ if st.session_state.data_loaded and not st.session_state.df.empty:
                     st.markdown(f"- {change}")
         else:
             st.info("No genre data available for this term.")
-
-# ✅ Prevent genre-diff block from running when df is not available
-if st.session_state.data_loaded and not st.session_state.df.empty and term != "long_term":
-    try:
-        long_df = pd.read_sql_query(
-            """
-            SELECT genre FROM top_tracks
-            WHERE genre != 'Unknown' AND term = 'long_term' AND username = ? AND track_id IN (
-                SELECT track_id FROM top_tracks WHERE term = ? AND username = ?
-            )
-            """,
-            sqlite3.connect(user_db),
-            params=(username, term, username)
-        )
-
-        long_genres = [g.strip() for g in long_df["genre"] if g and g != "Unknown" for g in g.split(',')]
-        long_counts = Counter(long_genres)
-
-        short_genres = [g.strip() for g in df["genre"] if g and g != "Unknown" for g in g.split(',')]
-        short_counts = Counter(short_genres)
-
-        genre_deltas = []
-        for genre in set(long_counts.keys()).union(short_counts.keys()):
-            delta = short_counts.get(genre, 0) - long_counts.get(genre, 0)
-            genre_deltas.append((genre, delta))
-
-        genre_deltas.sort(key=lambda x: abs(x[1]), reverse=True)
-
-        st.markdown("---")
-        st.subheader("🔄 Change in Genre Preference (Now vs. All Time)")
-
-        for genre, delta in genre_deltas[:5]:
-            symbol = "🔼" if delta > 0 else "🔽" if delta < 0 else "⏺"
-            st.markdown(f"{symbol} **{genre}**: {delta:+}")
-
-    except Exception as e:
-        st.warning(f"Could not compute genre change: {e}")
