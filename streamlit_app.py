@@ -14,7 +14,7 @@ from secrets_handler import SPOTIPY_CLIENT_ID, SPOTIPY_CLIENT_SECRET, SPOTIPY_RE
 
 st.set_page_config(page_title="Spotify Statistics Visualizer", layout="centered")
 
-# Session state initialization
+# Session state init
 if "sp" not in st.session_state:
     st.session_state.sp = None
 if "data_loaded" not in st.session_state:
@@ -25,15 +25,12 @@ if "username" not in st.session_state:
     st.session_state.username = None
 if "display_name" not in st.session_state:
     st.session_state.display_name = None
-if "logout_triggered" not in st.session_state:
-    st.session_state.logout_triggered = False
+if "just_logged_out" not in st.session_state:
+    st.session_state.just_logged_out = False
 
-# Logout logic
-if st.session_state.logout_triggered:
-    if os.path.exists(".cache"):
-        os.remove(".cache")
-    st.session_state.clear()
-    st.session_state.logout_triggered = False
+# Handle logout rerun loop
+if st.session_state.just_logged_out:
+    st.session_state.just_logged_out = False
     st.rerun()
 
 # Spotify login
@@ -44,8 +41,8 @@ if st.session_state.sp is None:
         redirect_uri=SPOTIPY_REDIRECT_URI,
         scope="user-read-private user-top-read user-read-recently-played",
         cache_path=".cache",
-        open_browser=False,
     )
+
     token_info = auth_manager.get_cached_token()
 
     if token_info:
@@ -60,10 +57,23 @@ if st.session_state.sp is None:
             st.stop()
     else:
         auth_url = auth_manager.get_authorize_url()
-        st.markdown("<h1 style='text-align: center;'>🌷 SpotYourVibe</h1>", unsafe_allow_html=True)
-        st.markdown("<p style='text-align: center;'>Log in to explore your top Spotify tracks and genres!</p>", unsafe_allow_html=True)
-        st.markdown(f"<div style='text-align: center;'><a href='{auth_url}'><button style='background-color: #1DB954; border: none; padding: 0.75rem 1.5rem; border-radius: 30px; color: white; font-size: 1rem;'>🔐 Log in with Spotify</button></a></div>", unsafe_allow_html=True)
-        st.markdown("<p style='text-align: center; font-size: 0.85rem; color: gray;'>No data stored, ever.</p>", unsafe_allow_html=True)
+        st.markdown("<h1 style='text-align: center;'>Spotify Statistics Visualizer</h1>", unsafe_allow_html=True)
+        st.markdown(
+            f"""
+            <div style='background-color: rgba(0,0,0,0.6); padding: 2rem; border-radius: 1rem; text-align: center;'>
+                <h1 style='font-size: 2.5rem;'>
+                    <span style='font-weight: bold;'>🌷 SpotYourVibe</span>
+                </h1>
+                <p>This is a personalized Spotify stats visualizer.<br>Log in to explore your top tracks, genres, and discover new music.</p>
+                <a href='{auth_url}'>
+                    <button style='margin-top: 1rem; background-color: #1DB954; border: none; color: white; padding: 0.75rem 1.5rem; border-radius: 30px; font-weight: bold; font-size: 1rem;'>
+                        🔐 Log in with Spotify
+                    </button>
+                </a>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
         st.stop()
 
 # Logged in
@@ -77,7 +87,10 @@ with col1:
     load_clicked = st.button("🔄 Load My Spotify Data")
 with col3:
     if st.button("🚪 Log out"):
-        st.session_state.logout_triggered = True
+        if os.path.exists(".cache"):
+            os.remove(".cache")
+        st.session_state.clear()
+        st.session_state.just_logged_out = True
         st.rerun()
 
 # Dropdown Centered
@@ -92,7 +105,11 @@ term = term_options[term_label]
 # Load Data Logic
 if load_clicked:
     with st.spinner("Fetching your Spotify data..."):
-        extract_and_store_top_tracks(sp, username)
+        user = st.session_state.sp.current_user()
+        st.session_state.username = user["id"]
+        st.session_state.display_name = user.get("display_name", "User")
+        extract_and_store_top_tracks(st.session_state.sp, st.session_state.username)
+
         conn = sqlite3.connect("spotify_data.db")
         st.session_state.df = pd.read_sql_query(
             "SELECT track_name, artist_name, genre FROM top_tracks WHERE username = ? AND term = ?",
@@ -100,10 +117,11 @@ if load_clicked:
             params=(username, term)
         )
         conn.close()
+
         st.session_state.data_loaded = True
 
-    st.success(f"✅ Data loaded for {display_name}!")
-    st.header(f"👋 Welcome, {display_name}!")
+    st.success(f"✅ Data loaded for {st.session_state.display_name}!")
+    st.header(f"👋 Welcome, {st.session_state.display_name}!")
 
 # Display Data
 if st.session_state.data_loaded:
@@ -134,16 +152,16 @@ if st.session_state.data_loaded:
                     url = s.get("url", "")
 
                     with st.container():
-                        c1, c2 = st.columns([1, 6])
-                        with c1:
+                        col1, col2 = st.columns([1, 6])
+                        with col1:
                             if image_url:
                                 st.image(image_url, width=96)
                             else:
                                 st.markdown("🎵")
-                        with c2:
-                            st.markdown(f"**{name}**")
-                            st.markdown(f"*by {artist}*")
-                            st.markdown(f"[Listen on Spotify]({url})")
+                        with col2:
+                            st.markdown(f"**{name}**  ")
+                            st.markdown(f"*by {artist}*  ")
+                            st.markdown(f"💬 [{name} by {artist} — Listen on Spotify]({url})")
                     st.markdown("---")
             else:
                 st.info("No song suggestions available. Try refreshing your data.")
