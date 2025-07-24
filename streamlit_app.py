@@ -12,10 +12,13 @@ from secrets_handler import SPOTIPY_CLIENT_ID, SPOTIPY_CLIENT_SECRET, SPOTIPY_RE
 
 st.set_page_config(page_title="Spotify Statistics Visualizer", layout="centered")
 
+# Session state init
 if "sp" not in st.session_state:
     st.session_state.sp = None
 if "data_loaded" not in st.session_state:
     st.session_state.data_loaded = False
+if "df" not in st.session_state:
+    st.session_state.df = pd.DataFrame()
 if "username" not in st.session_state:
     st.session_state.username = None
 if "display_name" not in st.session_state:
@@ -49,7 +52,7 @@ if st.session_state.sp is None:
         st.markdown("<h1 style='text-align: center;'>Spotify Statistics Visualizer</h1>", unsafe_allow_html=True)
         st.markdown(f"""
             <div style='background-color: rgba(0,0,0,0.6); padding: 2rem; border-radius: 1rem; text-align: center;'>
-                <h1 style='font-size: 2.5rem;'><span style='font-weight: bold;'>🎷 SpotYourVibe</span></h1>
+                <h1 style='font-size: 2.5rem;'><span style='font-weight: bold;'>🎧 SpotYourVibe</span></h1>
                 <p>This is a personalized Spotify stats visualizer.<br>Log in to explore your top tracks, genres, and discover new music.</p>
                 <a href='{auth_manager.get_authorize_url()}'>
                     <button style='margin-top: 1rem; background-color: #1DB954; border: none; color: white; padding: 0.75rem 1.5rem; border-radius: 30px; font-weight: bold; font-size: 1rem;'>🔐 Log in with Spotify</button>
@@ -72,22 +75,28 @@ term_options = {
 term_label = st.selectbox("Top Tracks for:", list(term_options.keys()))
 term = term_options[term_label]
 
-conn = sqlite3.connect(user_db)
-df = pd.read_sql_query(
-    """
-    SELECT track_name, artist_name, genre FROM top_tracks
-    WHERE term = ? AND username = ?
-    ORDER BY play_count ASC
-    """,
-    conn,
-    params=(term, username)
-)
-conn.close()
+# Show load button always
+if st.button("🔄 Load My Spotify Data"):
+    with st.spinner("Fetching your Spotify data..."):
+        user = sp.current_user()
+        st.session_state.username = user["id"]
+        st.session_state.display_name = user.get("display_name", "User")
+        extract_and_store_top_tracks(sp, username, user_db)
+        st.success(f"✅ Data loaded for {st.session_state.display_name}!")
+        st.session_state.data_loaded = True
 
-st.session_state.df = df
-st.session_state.data_loaded = True
+# Always load the current time frame data from DB if already loaded
+if st.session_state.data_loaded:
+    conn = sqlite3.connect(user_db)
+    st.session_state.df = pd.read_sql_query(
+        "SELECT track_name, artist_name, genre FROM top_tracks WHERE term = ? AND username = ? ORDER BY play_count ASC",
+        conn,
+        params=(term, username)
+    )
+    conn.close()
 
 if st.session_state.data_loaded and not st.session_state.df.empty:
+    df = st.session_state.df
     tab1, tab2 = st.tabs(["🎵 Top Tracks", "📊 Genre Chart"])
 
     with tab1:
@@ -143,7 +152,6 @@ if st.session_state.data_loaded and not st.session_state.df.empty:
             )
             st.plotly_chart(fig, use_container_width=True)
 
-            # --- Genre % Change Summary ---
             if term != "long_term":
                 long_df = pd.read_sql_query(
                     "SELECT genre FROM top_tracks WHERE genre != 'Unknown' AND term = 'long_term' AND username = ?",
