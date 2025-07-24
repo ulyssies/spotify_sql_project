@@ -39,9 +39,8 @@ if st.session_state.sp is None:
     if "code" in query_params:
         try:
             code = query_params["code"][0]
-            token_info = auth_manager.get_access_token(code)
-            access_token = token_info["access_token"]
-            sp = spotipy.Spotify(auth=access_token)
+            auth_manager.get_authorization_response(code)  # optional for flow completeness
+            sp = spotipy.Spotify(auth_manager=auth_manager)
             user = sp.current_user()
             st.session_state.sp = sp
             st.session_state.username = user["id"]
