@@ -1,127 +1,138 @@
-# 🎧 SpotYourVibe — Spotify Statistics Visualizer
+<div align="center">
 
-This Streamlit web app connects with your Spotify account to visualize and analyze your listening habits. It displays your top tracks, genre preferences, and suggests new music based on your recent activity.
+# 🎧 SpotYourVibe
 
-Now compatible with both local development using `.env` and Streamlit Cloud deployment using `secrets.toml`.
+**A Spotify statistics visualizer that transforms your listening history into interactive insights.**
 
-👉 [Live Demo](https://spoturvibe.streamlit.app/)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-spoturvibe.streamlit.app-1DB954?style=for-the-badge&logo=streamlit&logoColor=white)](https://spoturvibe.streamlit.app/)
+[![Python](https://img.shields.io/badge/Python-3.12+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
+[![License: MIT](https://img.shields.io/badge/License-MIT-22c55e?style=for-the-badge)](LICENSE)
 
----
-
-## 🔧 Features
-
-- **Top Tracks Analysis**:
-  - View your top 25 tracks for the last 4 weeks, 6 months, and all time.
-  - Displays track names, artist names, and popularity rankings.
-
-- **Genre Insights**:
-  - Clean, interactive bar charts showing your genre distribution.
-  - Hoverable tooltips with percentage values.
-  - +/− summary comparing recent vs. all-time genre changes.
-
-- **Music Recommendations**:
-  - Suggests 5 new songs based on your top listening data.
-  - Fallback to recently played tracks if needed.
-  - Shows album art, excerpts, and Spotify links.
-
-- **Smart Secrets Handling**:
-  - Supports both local `.env` and cloud `secrets.toml` config for seamless deployment.
-
-- **Interactive Web Interface**:
-  - Built with Streamlit for a responsive, modern UI.
-  - Personalized login page with dynamic content.
-  - Data refresh button for real-time Spotify sync.
+</div>
 
 ---
 
-## 📊 Data Processing & Insights
+## Overview
 
-This app does more than display Spotify data — it transforms it into meaningful insights. Key components:
-
-- **ETL Process**:
-  - Extracts top and recent track data using the Spotify Web API.
-  - Transforms with genre metadata.
-  - Loads results into SQLite database.
-
-- **Data Enrichment**:
-  - Normalizes and deduplicates track data.
-  - Supplements with recent plays if needed.
-  - Uses artist metadata to enrich with genre.
-
-- **Visualization**:
-  - Matplotlib for pie charts and Plotly for interactive bar charts.
-  - Categorizes listening behavior over multiple time periods.
-
-- **Recommendation Engine**:
-  - Uses Spotify’s API with top tracks as seeds.
-  - Provides clickable excerpts and Spotify preview links.
+SpotYourVibe connects to your Spotify account and turns your listening data into meaningful visualizations — top tracks across multiple time windows, genre distribution trends, and personalized song recommendations, all backed by a lightweight ETL pipeline and a local SQLite database.
 
 ---
 
-## 🧰 Tech Stack
+## Features
 
-- Python 3.12+
-- Streamlit
-- Spotipy
-- SQLite
-- Matplotlib
-- Pandas
-- Plotly
-- `python-dotenv`
+| Feature | Description |
+|---|---|
+| 🎵 **Top Tracks** | View your top 25 tracks across 4-week, 6-month, and all-time windows |
+| 📊 **Genre Insights** | Interactive bar charts with hover tooltips and +/− trend comparisons |
+| ✨ **Recommendations** | 5 personalized suggestions with album art, previews, and Spotify links |
+| 🔄 **ETL Pipeline** | Extracts, normalizes, and stores enriched track + genre metadata in SQLite |
+| 🔑 **Flexible Auth** | Supports both local `.env` and Streamlit Cloud `secrets.toml` |
+| ⚡ **Live Sync** | One-click data refresh to pull your latest Spotify activity |
 
 ---
 
-## 🚀 Getting Started
+## Tech Stack
 
-### 1. Clone this repository
+[![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?style=flat-square&logo=streamlit&logoColor=white)](https://streamlit.io)
+[![Spotipy](https://img.shields.io/badge/Spotipy-1DB954?style=flat-square&logo=spotify&logoColor=white)](https://github.com/plamere/spotipy)
+[![Pandas](https://img.shields.io/badge/Pandas-150458?style=flat-square&logo=pandas&logoColor=white)](https://pandas.pydata.org)
+[![Plotly](https://img.shields.io/badge/Plotly-3F4F75?style=flat-square&logo=plotly&logoColor=white)](https://plotly.com)
+[![SQLite](https://img.shields.io/badge/SQLite-003B57?style=flat-square&logo=sqlite&logoColor=white)](https://sqlite.org)
+[![Matplotlib](https://img.shields.io/badge/Matplotlib-11557c?style=flat-square)](https://matplotlib.org)
+
+---
+
+## Getting Started
+
+### 1. Clone the repository
+
 ```bash
 git clone https://github.com/ulyssies/spotify-visualizer.git
 cd spotify-visualizer
 ```
 
 ### 2. Set up a virtual environment
+
 ```bash
 python3 -m venv venv
-source venv/bin/activate  # On Windows use `venv\Scripts\activate`
+source venv/bin/activate  # Windows: venv\Scripts\activate
 ```
 
 ### 3. Install dependencies
+
 ```bash
 pip install -r requirements.txt
 ```
 
-### 4. Set up Spotify Developer App
-- Go to [Spotify Developer Dashboard](https://developer.spotify.com/dashboard)
-- Create an app and get your Client ID, Secret, and Redirect URI
+### 4. Create a Spotify Developer App
 
-- For local development, create a `.env` file:
+Go to the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard), create an app, and note your **Client ID**, **Client Secret**, and **Redirect URI**.
+
+Then configure your credentials depending on your environment:
+
+<table>
+<tr>
+<th>Local — <code>.env</code></th>
+<th>Streamlit Cloud — <code>secrets.toml</code></th>
+</tr>
+<tr>
+<td>
+
 ```env
 SPOTIPY_CLIENT_ID=your_client_id
 SPOTIPY_CLIENT_SECRET=your_client_secret
 SPOTIPY_REDIRECT_URI=http://localhost:8501
 ```
 
-- For Streamlit Cloud, go to `⚙️ Settings > Secrets` and add:
+</td>
+<td>
+
 ```toml
 [spotify]
 SPOTIPY_CLIENT_ID="your_client_id"
 SPOTIPY_CLIENT_SECRET="your_client_secret"
-SPOTIPY_REDIRECT_URI="https://your-deployed-url.streamlit.app"
+SPOTIPY_REDIRECT_URI="https://your-app.streamlit.app"
 ```
 
+</td>
+</tr>
+</table>
+
+> For Streamlit Cloud, add these under **Settings → Secrets** in your app dashboard.
+
 ### 5. Run the app
+
 ```bash
 streamlit run streamlit_app.py
 ```
 
 ---
 
-## 📝 License
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+## Data Pipeline
+
+The app runs a lightweight ETL process on each refresh:
+
+1. **Extract** — pulls top tracks and recently played data from the Spotify Web API
+2. **Transform** — enriches tracks with artist genre metadata, deduplicates, and normalizes
+3. **Load** — stores results in a local SQLite database for fast querying
+4. **Visualize** — renders Plotly bar charts, Matplotlib pie charts, and recommendation cards from the stored data
 
 ---
 
-## 🙌 Acknowledgments
+## Deployment
+
+This project is ready to deploy on [Streamlit Cloud](https://streamlit.io/cloud) with no code changes. Just connect your GitHub repo, set your secrets under **Settings → Secrets**, and deploy.
+
+---
+
+## Acknowledgments
+
 - [Spotify Web API](https://developer.spotify.com/documentation/web-api/)
 - [Streamlit](https://streamlit.io/)
 - [Spotipy](https://github.com/plamere/spotipy)
+
+---
+
+<div align="center">
+<sub>MIT License · Built with Python 3.12+</sub>
+</div>
