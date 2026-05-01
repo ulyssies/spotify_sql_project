@@ -1,5 +1,5 @@
 import { clearToken, getToken } from '@/lib/auth'
-import type { Artist, Genre, ImportResult, ImportStatus, Recommendation, StreamingHistoryItem, SyncResult, TimeRange, Track, User } from '@/lib/types'
+import type { Artist, ArtistMapData, Genre, GenreMapData, HistoryPatterns, HistoryStats, HeatmapDay, ImportResult, ImportStatus, Recommendation, StreamingHistoryItem, SyncResult, TimeRange, TopArtist, TopTrack, Track, User, YearStat } from '@/lib/types'
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api/v1'
 
@@ -59,4 +59,28 @@ export const api = {
 
   getImportStatus: () =>
     request<ImportStatus | null>('/import/status'),
+
+  fetchGenreMap: (range: TimeRange) =>
+    request<GenreMapData>(`/map/genres?range=${range}`),
+
+  fetchArtistMap: (range: TimeRange) =>
+    request<ArtistMapData>(`/map/artists?range=${range}`),
+
+  getHistoryStats: () =>
+    request<HistoryStats>('/history/stats'),
+
+  getHistoryYearly: () =>
+    request<YearStat[]>('/history/yearly'),
+
+  getHistoryHeatmap: (year?: number) =>
+    request<HeatmapDay[]>(`/history/heatmap${year ? `?year=${year}` : ''}`),
+
+  getHistoryPatterns: () =>
+    request<HistoryPatterns>('/history/patterns'),
+
+  getHistoryTopArtists: (year?: number, limit = 25) =>
+    request<TopArtist[]>(`/history/top-artists?limit=${limit}${year ? `&year=${year}` : ''}`),
+
+  getHistoryTopTracks: (year?: number, limit = 25) =>
+    request<TopTrack[]>(`/history/top-tracks?limit=${limit}${year ? `&year=${year}` : ''}`),
 }

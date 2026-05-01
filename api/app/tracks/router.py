@@ -34,4 +34,5 @@ async def get_tracks(
 ):
     """Return stored top tracks for the current user and time range, ordered by rank."""
     _validate_range(range)
-    return service.get_top_tracks(user_id=user["id"], time_range=range)
+    sp = get_spotify_client_for_user(user)
+    return service.get_top_tracks(user_id=user["id"], time_range=range, sp=sp)

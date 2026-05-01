@@ -1,13 +1,21 @@
 from collections import Counter
-from datetime import datetime, timezone
-from typing import List
+from datetime import datetime, timedelta, timezone
+from typing import List, Optional
 
 import spotipy
 
 from app.database import supabase
-from app.import_ import service as import_service
 
 TIME_RANGES = {"short_term", "medium_term", "long_term"}
+
+
+def _get_date_cutoff(time_range: str) -> Optional[datetime]:
+    now = datetime.now(timezone.utc)
+    if time_range == "short_term":
+        return now - timedelta(weeks=4)
+    if time_range == "medium_term":
+        return now - timedelta(days=180)
+    return None
 
 
 def _get_artist_genres(sp: spotipy.Spotify, artist_id: str) -> List[str]:
@@ -56,7 +64,10 @@ def sync_top_tracks(sp: spotipy.Spotify, user_id: str, time_range: str) -> List[
     for rank, item in enumerate(raw_tracks, start=1):
         artist = item["artists"][0]
         images = item["album"].get("images", [])
-        genres = _get_artist_genres(sp, artist["id"])
+        all_genres: List[str] = []
+        for a in item["artists"]:
+            all_genres.extend(_get_artist_genres(sp, a["id"]))
+        genres = list(set(all_genres))
         rows.append({
             "user_id": user_id,
             "spotify_track_id": item["id"],
@@ -118,7 +129,7 @@ def _sync_genre_snapshots(user_id: str, time_range: str, tracks: List[dict]) -> 
     ]).execute()
 
 
-def get_top_tracks(user_id: str, time_range: str) -> List[dict]:
+def get_top_tracks(user_id: str, time_range: str, sp: Optional[spotipy.Spotify] = None) -> List[dict]:
     """
     Fetch a user's stored top tracks for a given time range.
 
@@ -149,16 +160,90 @@ def get_top_tracks(user_id: str, time_range: str) -> List[dict]:
         return tracks
 
     try:
-        uris = [f"spotify:track:{t['spotify_track_id']}" for t in tracks]
-        play_stats = import_service.get_play_stats_for_tracks(user_id=user_id, spotify_track_uris=uris)
+        track_ids = [t["spotify_track_id"] for t in tracks]
+        track_uris = [f"spotify:track:{tid}" for tid in track_ids]
+        cutoff = _get_date_cutoff(time_range)
+        sh_query = (
+            supabase.table("streaming_history")
+            .select("spotify_track_uri, ms_played, played_at")
+            .eq("user_id", user_id)
+            .in_("spotify_track_uri", track_uris)
+            .limit(50000)
+        )
+        if cutoff:
+            sh_query = sh_query.gte("played_at", cutoff.isoformat())
+        sh_result = sh_query.execute()
+        stats_by_id: dict = {}
+        for row in sh_result.data or []:
+            tid = row["spotify_track_uri"].replace("spotify:track:", "")
+            if tid not in stats_by_id:
+                stats_by_id[tid] = {"play_count": 0, "ms_total": 0, "first": row["played_at"]}
+            s = stats_by_id[tid]
+            s["play_count"] += 1
+            s["ms_total"] += row["ms_played"]
+            if row["played_at"] < s["first"]:
+                s["first"] = row["played_at"]
         for track in tracks:
-            uri = f"spotify:track:{track['spotify_track_id']}"
-            stats = play_stats.get(uri)
-            if stats:
-                track["play_count"] = stats["play_count"]
-                track["minutes_played"] = stats["minutes_played"]
-                track["first_listened"] = stats["first_listened"]
-    except Exception:
-        pass
+            s = stats_by_id.get(track["spotify_track_id"])
+            if s:
+                track["play_count"] = s["play_count"]
+                track["minutes_played"] = round(s["ms_total"] / 60000)
+                track["first_listened"] = s["first"][:10]
+
+        if time_range == "long_term":
+            history_top = supabase.rpc("history_top_tracks", {
+                "p_user_id": str(user_id),
+                "p_limit": 50,
+            }).execute()
+            existing_ids = {t["spotify_track_id"] for t in tracks}
+            for ht in history_top.data or []:
+                track_id = ht["spotify_track_uri"].replace("spotify:track:", "")
+                if track_id not in existing_ids:
+                    tracks.append({
+                        "id": None,
+                        "time_range": time_range,
+                        "snapshot_at": None,
+                        "track_name": ht["track_name"],
+                        "artist_name": ht["artist_name"],
+                        "spotify_track_id": track_id,
+                        "play_count": ht["plays"],
+                        "minutes_played": round(ht["total_ms"] / 60000),
+                        "rank": 999,
+                        "album_art_url": None,
+                        "album_name": None,
+                        "genres": [],
+                        "popularity": None,
+                        "first_listened": None,
+                    })
+                    existing_ids.add(track_id)
+
+        tracks_with_counts = [t for t in tracks if t.get("play_count")]
+        tracks_without_counts = [t for t in tracks if not t.get("play_count")]
+
+        if len(tracks_with_counts) >= 5:
+            tracks_with_counts.sort(key=lambda x: x["play_count"], reverse=True)
+            for i, t in enumerate(tracks_with_counts):
+                t["rank"] = i + 1
+            tracks = tracks_with_counts + tracks_without_counts
+
+        if sp is not None:
+            missing_art = [t for t in tracks if not t.get("album_art_url")]
+            if missing_art:
+                ids = [t["spotify_track_id"] for t in missing_art[:50]]
+                try:
+                    results = sp.tracks(ids)
+                    art_map = {
+                        t["id"]: t["album"]["images"][0]["url"]
+                        if t["album"]["images"] else None
+                        for t in results["tracks"]
+                        if t
+                    }
+                    for track in missing_art:
+                        track["album_art_url"] = art_map.get(track["spotify_track_id"])
+                except Exception as e:
+                    print(f"Album art fetch failed: {e}")
+
+    except Exception as e:
+        print(f"Track enrichment error: {e}")
 
     return tracks

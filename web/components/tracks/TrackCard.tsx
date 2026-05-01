@@ -1,5 +1,15 @@
+'use client'
+
 import Image from 'next/image'
 import type { Track } from '@/lib/types'
+
+function formatMinutes(mins: number | null | undefined): string {
+  if (!mins) return ''
+  if (mins < 60) return `${mins}m`
+  const h = Math.floor(mins / 60)
+  const m = mins % 60
+  return m > 0 ? `${h}h ${m}m` : `${h}h`
+}
 
 interface TrackCardProps {
   track: Track
@@ -36,25 +46,32 @@ export function TrackCard({ track }: TrackCardProps) {
         <p className="text-sm text-muted truncate leading-tight mt-0.5">
           {track.artist_name}
         </p>
+        {track.play_count != null && (
+          <div className="flex gap-3 mt-1">
+            <span className="text-xs font-mono text-[#1DB954]">
+              {track.play_count} plays
+            </span>
+            {formatMinutes(track.minutes_played) && (
+              <span className="text-xs font-mono text-[#666]">
+                {formatMinutes(track.minutes_played)}
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Play count + time pills — only shown when streaming history is imported */}
-      {track.play_count !== null && (
-        <div className="flex items-center gap-2 shrink-0">
-          <span className="font-mono text-xs text-[#666666]">
-            {track.play_count} plays
-          </span>
-          {track.minutes_played !== null && track.minutes_played > 0 && (
-            <span className="font-mono text-xs text-[#444]">
-              {track.minutes_played >= 60
-                ? `${Math.floor(track.minutes_played / 60)}h ${track.minutes_played % 60}m`
-                : `${track.minutes_played}m`}
-            </span>
-          )}
-        </div>
+      {/* First listened — fades in on hover */}
+      {track.first_listened && (
+        <span className="text-xs font-mono text-[#555] opacity-0 group-hover:opacity-100 transition-opacity duration-150 shrink-0 whitespace-nowrap">
+          First played{' '}
+          {new Date(track.first_listened).toLocaleDateString('en-US', {
+            month: 'short',
+            year: 'numeric',
+          })}
+        </span>
       )}
 
-      {/* Popularity dot — subtle signal without cluttering */}
+      {/* Popularity dot — only when no streaming history */}
       {track.play_count === null && track.popularity !== null && track.popularity >= 80 && (
         <span className="w-1.5 h-1.5 rounded-full bg-accent/60 shrink-0" title="Trending" />
       )}

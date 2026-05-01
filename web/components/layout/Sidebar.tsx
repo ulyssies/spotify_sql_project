@@ -9,6 +9,8 @@ import {
   BarChart2,
   Sparkles,
   Upload,
+  Network,
+  Clock,
   ChevronLeft,
   ChevronRight,
   LogOut,
@@ -19,6 +21,8 @@ import { useUser } from '@/hooks/useUser'
 const NAV_ITEMS = [
   { href: '/dashboard/tracks',          label: 'Top Tracks',      Icon: Music2    },
   { href: '/dashboard/artists',         label: 'Top Artists',     Icon: Mic2      },
+  { href: '/dashboard/map',             label: 'Music Map',       Icon: Network   },
+  { href: '/dashboard/history',         label: 'History',         Icon: Clock     },
   { href: '/dashboard/genres',          label: 'Genres',          Icon: BarChart2 },
   { href: '/dashboard/recommendations', label: 'Recommendations', Icon: Sparkles  },
   { href: '/dashboard/import',          label: 'Import Data',     Icon: Upload    },

@@ -5,17 +5,17 @@ from pydantic import BaseModel
 
 
 class TrackOut(BaseModel):
-    id: str
+    id: Optional[str] = None
     spotify_track_id: str
     track_name: str
     artist_name: str
-    album_name: Optional[str]
-    album_art_url: Optional[str]
-    popularity: Optional[int]
-    time_range: str
+    album_name: Optional[str] = None
+    album_art_url: Optional[str] = None
+    popularity: Optional[int] = None
+    time_range: Optional[str] = None
     rank: int
-    genres: Optional[List[str]]
-    snapshot_at: datetime
+    genres: Optional[List[str]] = None
+    snapshot_at: Optional[datetime] = None
     play_count: Optional[int] = None
     minutes_played: Optional[int] = None
     first_listened: Optional[str] = None

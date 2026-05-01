@@ -1,5 +1,15 @@
+'use client'
+
 import Image from 'next/image'
 import type { Artist } from '@/lib/types'
+
+function formatMinutes(mins: number | null | undefined): string {
+  if (!mins) return ''
+  if (mins < 60) return `${mins}m`
+  const h = Math.floor(mins / 60)
+  const m = mins % 60
+  return m > 0 ? `${h}h ${m}m` : `${h}h`
+}
 
 function formatFollowers(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M followers`
@@ -39,15 +49,30 @@ export function ArtistCard({ artist }: ArtistCardProps) {
 
         {/* Hover overlay — bottom third */}
         <div className="absolute inset-x-0 bottom-0 h-1/3 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex items-center justify-center px-2 gap-2 overflow-hidden">
-          {artist.popularity !== null && (
-            <span className="text-[10px] font-mono text-[#1DB954] whitespace-nowrap">
-              {artist.popularity} pop
-            </span>
-          )}
-          {artist.followers !== null && (
-            <span className="text-[10px] font-mono text-white whitespace-nowrap">
-              {formatFollowers(artist.followers)}
-            </span>
+          {artist.total_plays != null ? (
+            <>
+              <span className="text-[10px] font-mono text-[#1DB954] whitespace-nowrap">
+                {artist.total_plays.toLocaleString()} plays
+              </span>
+              {formatMinutes(artist.total_minutes) && (
+                <span className="text-[10px] font-mono text-[#666] whitespace-nowrap">
+                  {formatMinutes(artist.total_minutes)}
+                </span>
+              )}
+            </>
+          ) : (
+            <>
+              {artist.popularity !== null && (
+                <span className="text-[10px] font-mono text-[#1DB954] whitespace-nowrap">
+                  {artist.popularity} pop
+                </span>
+              )}
+              {artist.followers !== null && (
+                <span className="text-[10px] font-mono text-white whitespace-nowrap">
+                  {formatFollowers(artist.followers)}
+                </span>
+              )}
+            </>
           )}
         </div>
       </div>
