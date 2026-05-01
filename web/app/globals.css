@@ -1,0 +1,49 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  ::-webkit-scrollbar {
+    width: 5px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #1f1f1f;
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #2a2a2a;
+  }
+}
+
+@layer utilities {
+  /* Slow drifting radial gradient — landing page background */
+  .bg-landing {
+    background:
+      radial-gradient(ellipse 60% 50% at 20% 60%, rgba(29, 185, 84, 0.07) 0%, transparent 70%),
+      radial-gradient(ellipse 40% 40% at 80% 20%, rgba(29, 185, 84, 0.03) 0%, transparent 60%),
+      #080808;
+    animation: drift 24s ease-in-out infinite alternate;
+  }
+}
+
+@keyframes drift {
+  0%   { background-position: 20% 60%, 80% 20%; }
+  33%  { background-position: 22% 58%, 78% 22%; }
+  66%  { background-position: 18% 62%, 82% 18%; }
+  100% { background-position: 21% 59%, 79% 21%; }
+}
