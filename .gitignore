@@ -1,5 +1,6 @@
 # Environment files
 .env*
+!.env*.example
 
 # Python cache and bytecode
 __pycache__/
@@ -9,18 +10,25 @@ __pycache__/
 venv/
 .venv/
 
-# SQLite database file
-spotify_data.db
+# SQLite databases
+*.db
 
-# macOS or system files
+# Spotipy token cache
+.cache
+
+# macOS system files
 .DS_Store
 
-# Streamlit secrets
-.streamlit/secrets.toml
-
-# Streamlit config 
-!.streamlit/config.toml
-
-# IDE/editor folders 
+# IDE/editor folders
 .vscode/
 .idea/
+
+# Node.js
+node_modules/
+
+# Next.js build output
+.next/
+out/
+
+# TypeScript build info
+*.tsbuildinfo
