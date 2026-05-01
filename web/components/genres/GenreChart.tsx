@@ -11,11 +11,29 @@ import {
 } from 'recharts'
 import type { Genre } from '@/lib/types'
 
-const BAR_COLORS = ['#1DB954', '#15803d', '#166534']
-const BAR_DEFAULT = '#1f1f1f'
-
-function barColor(index: number): string {
-  return index < BAR_COLORS.length ? BAR_COLORS[index] : BAR_DEFAULT
+function getGenreColor(genre: string): string {
+  const g = genre.toLowerCase()
+  if (g.includes('rap') || g.includes('hip hop') || g.includes('trap') || g.includes('drill'))
+    return '#ef4444'
+  if (g.includes('r&b') || g.includes('soul') || g.includes('funk'))
+    return '#f59e0b'
+  if (g.includes('pop'))
+    return '#f472b6'
+  if (g.includes('rock') || g.includes('metal') || g.includes('punk') || g.includes('garage'))
+    return '#60a5fa'
+  if (g.includes('indie') || g.includes('alternative') || g.includes('alt'))
+    return '#818cf8'
+  if (g.includes('electronic') || g.includes('house') || g.includes('techno') || g.includes('synth'))
+    return '#22d3ee'
+  if (g.includes('folk') || g.includes('country'))
+    return '#84cc16'
+  if (g.includes('jazz') || g.includes('blues'))
+    return '#a78bfa'
+  if (g.includes('classical') || g.includes('baroque'))
+    return '#e879f9'
+  if (g.includes('dream') || g.includes('shoegaze') || g.includes('slowcore'))
+    return '#2dd4bf'
+  return '#6b7280'
 }
 
 function CustomTooltip({
@@ -106,8 +124,11 @@ export function GenreChart({ data }: GenreChartProps) {
               fontFamily: 'var(--font-dm-mono)',
             }}
           >
-            {data.map((entry, index) => (
-              <Cell key={entry.genre} fill={barColor(index)} />
+            {data.map((entry) => (
+              <Cell
+                key={entry.genre}
+                fill={entry.other_genres?.length ? '#2a2a2a' : getGenreColor(entry.genre)}
+              />
             ))}
           </Bar>
         </BarChart>

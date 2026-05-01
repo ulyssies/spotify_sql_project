@@ -97,6 +97,21 @@ CREATE INDEX IF NOT EXISTS idx_streaming_history_user_uri
     ON streaming_history (user_id, spotify_track_uri);
 
 -- ─────────────────────────────────────────────
+-- artist_genres (global — not per-user)
+-- ─────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS artist_genres (
+    id                  UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    artist_name         TEXT        NOT NULL,
+    spotify_artist_id   TEXT,
+    genres              TEXT[]      NOT NULL DEFAULT '{}',
+    fetched_at          TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE (artist_name)
+);
+
+CREATE INDEX IF NOT EXISTS idx_artist_genres_name
+    ON artist_genres (LOWER(artist_name));
+
+-- ─────────────────────────────────────────────
 -- Row-Level Security
 -- ─────────────────────────────────────────────
 ALTER TABLE users              ENABLE ROW LEVEL SECURITY;
