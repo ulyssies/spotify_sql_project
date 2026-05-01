@@ -8,6 +8,8 @@ from app.recommendations.router import router as recommendations_router
 from app.genres.router import router as genres_router
 from app.import_.router import router as import_router
 from app.artists.router import router as artists_router
+from app.map.router import router as map_router
+from app.history.router import router as history_router
 
 app = FastAPI(title="SpotYourVibe API", version="1.0.0")
 
@@ -28,6 +30,8 @@ app.include_router(recommendations_router, prefix=API_PREFIX)
 app.include_router(genres_router, prefix=API_PREFIX)
 app.include_router(import_router, prefix=API_PREFIX)
 app.include_router(artists_router, prefix=API_PREFIX)
+app.include_router(map_router, prefix=API_PREFIX)
+app.include_router(history_router, prefix=API_PREFIX)
 
 
 @app.get("/health")

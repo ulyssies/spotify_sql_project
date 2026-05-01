@@ -8,13 +8,16 @@ from app.import_.models import StreamingHistoryItemIn
 def upsert_streaming_history(user_id: str, items: List[StreamingHistoryItemIn]) -> dict:
     rows = [
         {
-            "user_id": user_id,
-            "played_at": item.ts,
-            "ms_played": item.ms_played,
-            "track_name": item.master_metadata_track_name,
-            "artist_name": item.master_metadata_album_artist_name,
-            "album_name": item.master_metadata_album_album_name,
+            "user_id":          user_id,
+            "played_at":        item.ts,
+            "ms_played":        item.ms_played,
+            "track_name":       item.master_metadata_track_name,
+            "artist_name":      item.master_metadata_album_artist_name,
+            "album_name":       item.master_metadata_album_album_name,
             "spotify_track_uri": item.spotify_track_uri,
+            "reason_start":     item.reason_start,
+            "reason_end":       item.reason_end,
+            "skipped":          item.skipped,
         }
         for item in items
     ]

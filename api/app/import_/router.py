@@ -15,7 +15,13 @@ async def import_streaming_history(
     user: dict = Depends(get_current_user),
 ):
     """Upsert pre-filtered streaming history rows for the current user."""
-    result = service.upsert_streaming_history(user_id=user["id"], items=items)
+    normalized = [
+        item.model_copy(update={"spotify_track_uri": f"spotify:track:{item.spotify_track_uri}"})
+        if not item.spotify_track_uri.startswith("spotify:track:")
+        else item
+        for item in items
+    ]
+    result = service.upsert_streaming_history(user_id=user["id"], items=normalized)
     return result
 
 
