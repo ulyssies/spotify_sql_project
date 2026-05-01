@@ -1,11 +1,12 @@
 <div align="center">
 
-# 🎧 SpotYourVibe
+# SpotYourVibe
 
-**A Spotify statistics visualizer that transforms your listening history into interactive insights.**
+**A full-stack Spotify statistics dashboard that turns your listening history into interactive insights.**
 
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-spoturvibe.streamlit.app-1DB954?style=for-the-badge&logo=streamlit&logoColor=white)](https://spoturvibe.streamlit.app/)
-[![Python](https://img.shields.io/badge/Python-3.12+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
+[![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
+[![Next.js](https://img.shields.io/badge/Next.js%2014-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)](https://nextjs.org)
+[![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-22c55e?style=for-the-badge)](LICENSE)
 
 </div>
@@ -14,7 +15,7 @@
 
 ## Overview
 
-SpotYourVibe connects to your Spotify account and turns your listening data into meaningful visualizations — top tracks across multiple time windows, genre distribution trends, and personalized song recommendations, all backed by a lightweight ETL pipeline and a local SQLite database.
+SpotYourVibe connects to your Spotify account via OAuth and surfaces your listening data across three time windows: last 4 weeks, last 6 months, and all time. It runs a per-user ETL pipeline on demand — pulling data from the Spotify Web API, enriching it with artist and genre metadata, and persisting it in Supabase for fast querying. The frontend is a Next.js 14 App Router application with a collapsible sidebar, responsive grid layouts, and SWR-powered data fetching.
 
 ---
 
@@ -22,27 +23,68 @@ SpotYourVibe connects to your Spotify account and turns your listening data into
 
 | Feature | Description |
 |---|---|
-| 🎵 **Top Tracks** | View your top 25 tracks across 4-week, 6-month, and all-time windows |
-| 📊 **Genre Insights** | Interactive bar charts with hover tooltips and +/− trend comparisons |
-| ✨ **Recommendations** | 5 personalized suggestions with album art, previews, and Spotify links |
-| 🔄 **ETL Pipeline** | Extracts, normalizes, and stores enriched track + genre metadata in SQLite |
-| 🔑 **Flexible Auth** | Supports both local `.env` and Streamlit Cloud `secrets.toml` |
-| ⚡ **Live Sync** | One-click data refresh to pull your latest Spotify activity |
+| **Top Tracks** | Your top 50 tracks in a responsive grid with album art, rank overlay, and play stats from imported history |
+| **Top Artists** | Your top 50 artists with circular portrait, genre tags, follower count, and popularity score |
+| **Genre Insights** | Bar chart of genre distribution by track count; genres under 4% are consolidated into an Other bucket |
+| **Recommendations** | Personalized track suggestions sourced from related artists, filtered against your listening history |
+| **Import History** | Drag-and-drop uploader for Spotify data exports; detects both the extended and short history formats |
+| **Live Sync** | On-demand sync per time range — replaces stale rows atomically with the latest Spotify data |
+
+---
+
+## Architecture
+
+```
+spotify_sql_project/
+├── api/                        # FastAPI backend
+│   ├── app/
+│   │   ├── auth/               # Spotify OAuth + JWT session management
+│   │   ├── users/              # User profile and sync metadata
+│   │   ├── tracks/             # Top tracks ETL and read endpoints
+│   │   ├── artists/            # Top artists ETL and read endpoints
+│   │   ├── genres/             # Genre aggregation from track data
+│   │   ├── recommendations/    # Related-artists recommendation pipeline
+│   │   └── import_/            # Streaming history ingestion
+│   ├── supabase/
+│   │   └── schema.sql          # Full Supabase schema with RLS
+│   └── requirements.txt
+└── web/                        # Next.js 14 frontend
+    ├── app/                    # App Router pages and layouts
+    ├── components/             # UI components (tracks, artists, genres, layout)
+    ├── hooks/                  # SWR data hooks
+    └── lib/                    # API client, auth utilities, shared types
+```
 
 ---
 
 ## Tech Stack
 
-[![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?style=flat-square&logo=streamlit&logoColor=white)](https://streamlit.io)
+**Backend**
+
+[![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
+[![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?style=flat-square&logo=supabase&logoColor=white)](https://supabase.com)
 [![Spotipy](https://img.shields.io/badge/Spotipy-1DB954?style=flat-square&logo=spotify&logoColor=white)](https://github.com/plamere/spotipy)
-[![Pandas](https://img.shields.io/badge/Pandas-150458?style=flat-square&logo=pandas&logoColor=white)](https://pandas.pydata.org)
-[![Plotly](https://img.shields.io/badge/Plotly-3F4F75?style=flat-square&logo=plotly&logoColor=white)](https://plotly.com)
-[![SQLite](https://img.shields.io/badge/SQLite-003B57?style=flat-square&logo=sqlite&logoColor=white)](https://sqlite.org)
-[![Matplotlib](https://img.shields.io/badge/Matplotlib-11557c?style=flat-square)](https://matplotlib.org)
+[![Pydantic](https://img.shields.io/badge/Pydantic-E92063?style=flat-square&logo=pydantic&logoColor=white)](https://docs.pydantic.dev)
+
+**Frontend**
+
+[![Next.js](https://img.shields.io/badge/Next.js%2014-000000?style=flat-square&logo=nextdotjs&logoColor=white)](https://nextjs.org)
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://typescriptlang.org)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white)](https://tailwindcss.com)
+[![Recharts](https://img.shields.io/badge/Recharts-22C55E?style=flat-square)](https://recharts.org)
 
 ---
 
 ## Getting Started
+
+### Prerequisites
+
+- Python 3.11+
+- Node.js 18+
+- A [Supabase](https://supabase.com) project
+- A [Spotify Developer](https://developer.spotify.com/dashboard) app with OAuth credentials
+
+---
 
 ### 1. Clone the repository
 
@@ -51,88 +93,101 @@ git clone https://github.com/ulyssies/spotify-visualizer.git
 cd spotify-visualizer
 ```
 
-### 2. Set up a virtual environment
+---
+
+### 2. Set up the database
+
+Run `api/supabase/schema.sql` in the Supabase SQL editor to create all tables, indexes, and RLS policies.
+
+---
+
+### 3. Configure and run the API
 
 ```bash
+cd api
 python3 -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-```
-
-### 3. Install dependencies
-
-```bash
+source venv/bin/activate       # Windows: venv\Scripts\activate
 pip install -r requirements.txt
+cp .env.example .env
 ```
 
-### 4. Create a Spotify Developer App
-
-Go to the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard), create an app, and note your **Client ID**, **Client Secret**, and **Redirect URI**.
-
-Then configure your credentials depending on your environment:
-
-<table>
-<tr>
-<th>Local — <code>.env</code></th>
-<th>Streamlit Cloud — <code>secrets.toml</code></th>
-</tr>
-<tr>
-<td>
+Edit `.env` with your credentials:
 
 ```env
-SPOTIPY_CLIENT_ID=your_client_id
-SPOTIPY_CLIENT_SECRET=your_client_secret
-SPOTIPY_REDIRECT_URI=http://localhost:8501
+SPOTIFY_CLIENT_ID=your_client_id
+SPOTIFY_CLIENT_SECRET=your_client_secret
+SPOTIFY_REDIRECT_URI=http://localhost:3000/auth/callback
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_KEY=your_service_role_key
+JWT_SECRET=a_long_random_secret
+FRONTEND_URL=http://localhost:3000
 ```
 
-</td>
-<td>
-
-```toml
-[spotify]
-SPOTIPY_CLIENT_ID="your_client_id"
-SPOTIPY_CLIENT_SECRET="your_client_secret"
-SPOTIPY_REDIRECT_URI="https://your-app.streamlit.app"
-```
-
-</td>
-</tr>
-</table>
-
-> For Streamlit Cloud, add these under **Settings → Secrets** in your app dashboard.
-
-### 5. Run the app
+Start the server:
 
 ```bash
-streamlit run streamlit_app.py
+python3 -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
+
+---
+
+### 4. Configure and run the frontend
+
+```bash
+cd web
+npm install
+cp .env.local.example .env.local
+```
+
+Edit `.env.local`:
+
+```env
+NEXT_PUBLIC_API_URL=http://127.0.0.1:8000
+```
+
+Start the dev server:
+
+```bash
+npm run dev
+```
+
+The app is available at `http://localhost:3000`.
 
 ---
 
 ## Data Pipeline
 
-The app runs a lightweight ETL process on each refresh:
+Each sync is scoped to a user and time range (`short_term`, `medium_term`, `long_term`):
 
-1. **Extract** — pulls top tracks and recently played data from the Spotify Web API
-2. **Transform** — enriches tracks with artist genre metadata, deduplicates, and normalizes
-3. **Load** — stores results in a local SQLite database for fast querying
-4. **Visualize** — renders Plotly bar charts, Matplotlib pie charts, and recommendation cards from the stored data
+1. **Extract** — calls `current_user_top_tracks` or `current_user_top_artists` via the Spotify Web API (limit 50)
+2. **Enrich** — fetches artist genre metadata for each track
+3. **Load** — deletes the existing rows for that user and time range, then inserts fresh data atomically
+4. **Aggregate** — recalculates genre distribution from track data; genres under 4% are consolidated
+
+Recommendations are derived by fetching related artists for the user's top artists, pulling their top tracks, and filtering against all tracks the user has already heard across every time range.
 
 ---
 
-## Deployment
+## Importing Spotify History
 
-This project is ready to deploy on [Streamlit Cloud](https://streamlit.io/cloud) with no code changes. Just connect your GitHub repo, set your secrets under **Settings → Secrets**, and deploy.
+SpotYourVibe accepts both formats from the Spotify data export:
+
+- **Extended history** (`StreamingHistory_music_*.json`) — includes full track URIs and milliseconds played
+- **Short history** (`StreamingHistory*.json`) — includes artist/track name and end time; URIs are synthesised for storage
+
+Request your data export at [spotify.com/account/privacy](https://www.spotify.com/account/privacy). Delivery typically takes up to 30 days for the full extended history; the basic export is available within a few days.
 
 ---
 
 ## Acknowledgments
 
 - [Spotify Web API](https://developer.spotify.com/documentation/web-api/)
-- [Streamlit](https://streamlit.io/)
 - [Spotipy](https://github.com/plamere/spotipy)
+- [Supabase](https://supabase.com)
+- [Recharts](https://recharts.org)
 
 ---
 
 <div align="center">
-<sub>MIT License · Built with Python 3.12+</sub>
+<sub>MIT License · Built with Python 3.11+ and Node.js 18+</sub>
 </div>
