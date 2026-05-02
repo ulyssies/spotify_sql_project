@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     supabase_service_key: str
     jwt_secret: str
     frontend_url: str = "http://localhost:3000"
+    lastfm_api_key: str = ""
 
     class Config:
         env_file = ".env"
