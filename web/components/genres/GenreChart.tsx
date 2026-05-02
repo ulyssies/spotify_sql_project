@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import {
   Bar,
   BarChart,
@@ -58,20 +59,9 @@ function CustomTooltip({
         fontSize: 13,
       }}
     >
-      {entry.other_genres?.length ? (
-        <>
-          <p style={{ color: '#666', marginBottom: 6, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            Minor genres:
-          </p>
-          {entry.other_genres.map((g) => (
-            <p key={g} style={{ color: '#f5f5f5', lineHeight: 1.7 }}>{g}</p>
-          ))}
-        </>
-      ) : (
-        <p style={{ color: '#f5f5f5' }}>
-          {entry.genre} — {entry.percentage}% of your top tracks
-        </p>
-      )}
+      <p style={{ color: '#f5f5f5' }}>
+        {entry.genre} — {entry.percentage}% of your listening
+      </p>
     </div>
   )
 }
@@ -81,13 +71,16 @@ interface GenreChartProps {
 }
 
 export function GenreChart({ data }: GenreChartProps) {
-  const height = Math.max(240, data.length * 60)
+  const [otherExpanded, setOtherExpanded] = useState(false)
+
+  const other = data.find((g) => g.other_genres)
+  const named = data.filter((g) => !g.other_genres)
 
   return (
     <div className="w-full">
-      <ResponsiveContainer width="100%" height={height}>
+      <ResponsiveContainer width="100%" height={Math.max(240, named.length * 48)}>
         <BarChart
-          data={data}
+          data={named}
           layout="vertical"
           margin={{ top: 0, right: 56, bottom: 0, left: 0 }}
         >
@@ -124,15 +117,44 @@ export function GenreChart({ data }: GenreChartProps) {
               fontFamily: 'var(--font-dm-mono)',
             }}
           >
-            {data.map((entry) => (
+            {named.map((entry) => (
               <Cell
                 key={entry.genre}
-                fill={entry.other_genres?.length ? '#2a2a2a' : getGenreColor(entry.genre)}
+                fill={getGenreColor(entry.genre)}
               />
             ))}
           </Bar>
         </BarChart>
       </ResponsiveContainer>
+
+      {other && (
+        <div className="mt-4 border-t border-border/40 pt-4">
+          <button
+            onClick={() => setOtherExpanded((v) => !v)}
+            className="flex items-center justify-between w-full text-left group"
+          >
+            <span className="text-sm text-muted font-mono">
+              {other.other_genres!.length} more genres — {other.percentage.toFixed(1)}% of listening
+            </span>
+            <span className="text-muted text-xs group-hover:text-primary transition-colors">
+              {otherExpanded ? '▲ hide' : '▼ show'}
+            </span>
+          </button>
+
+          {otherExpanded && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {other.other_genres!.map((g) => (
+                <span
+                  key={g}
+                  className="px-2 py-1 rounded-md text-xs font-mono text-muted bg-white/5 border border-border/40"
+                >
+                  {g}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

@@ -3,7 +3,8 @@ from typing import List, Optional
 
 from app.database import supabase
 
-THRESHOLD = 2.0
+THRESHOLD = 1.0
+TOP_N = 12
 
 
 def _get_date_cutoff(time_range: str) -> Optional[datetime]:
@@ -17,10 +18,11 @@ def _get_date_cutoff(time_range: str) -> Optional[datetime]:
 
 def _bucket_genres(genres: List[dict], snapshot_at: str) -> List[dict]:
     sorted_genres = sorted(genres, key=lambda x: x["percentage"], reverse=True)
-    top = [g for g in sorted_genres if g["percentage"] >= THRESHOLD][:10]
+    top = [g for g in sorted_genres if g["percentage"] >= THRESHOLD][:TOP_N]
     tail = [g for g in sorted_genres if g["percentage"] < THRESHOLD]
 
     if tail:
+        # Other is always pinned last — never sorted into the named genres
         top.append({
             "genre": f"Other ({len(tail)} genres)",
             "percentage": round(sum(g["percentage"] for g in tail), 1),
@@ -28,7 +30,21 @@ def _bucket_genres(genres: List[dict], snapshot_at: str) -> List[dict]:
             "snapshot_at": snapshot_at,
         })
 
-    return sorted(top, key=lambda x: x["percentage"], reverse=True)
+    return top
+
+
+_GENRE_ALIASES: dict = {
+    "hip-hop":          "hip hop",
+    "hiphop":           "hip hop",
+    "r&b":              "r&b",
+    "rnb":              "r&b",
+    "rhythm and blues": "r&b",
+    "rhythm & blues":   "r&b",
+}
+
+
+def _normalize_genre(genre: str) -> str:
+    return _GENRE_ALIASES.get(genre.lower().strip(), genre.lower().strip())
 
 
 def _get_genres_from_history(user_id: str, time_range: str, snapshot_at: str) -> List[dict]:
@@ -76,7 +92,7 @@ def _get_genres_from_history(user_id: str, time_range: str, snapshot_at: str) ->
     genre_weights: dict = {}
     for artist_name, ms in artist_ms.items():
         for genre in genre_lookup.get(artist_name, []):
-            genre_weights[genre] = genre_weights.get(genre, 0) + ms
+            genre_weights[_normalize_genre(genre)] = genre_weights.get(_normalize_genre(genre), 0) + ms
 
     if not genre_weights:
         return []
