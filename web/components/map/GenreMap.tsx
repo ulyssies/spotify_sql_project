@@ -38,7 +38,6 @@ const FAMILY_COLORS: Record<string, string> = {
   'dream':      '#2dd4bf',
   'latin':      '#fb923c',
   'reggae':     '#facc15',
-  'other':      '#6b7280',
 }
 
 // Hue values used to sort families into a rainbow distribution around the circle
@@ -46,11 +45,10 @@ const FAMILY_HUE: Record<string, number> = {
   'hip-hop': 0, 'latin': 24, 'r-and-b': 38, 'reggae': 48,
   'folk': 79, 'dream': 172, 'electronic': 189, 'rock': 213,
   'indie': 234, 'jazz': 259, 'classical': 291, 'pop': 325,
-  'other': 350,
 }
 
 function familyColor(family: string | undefined): string {
-  return FAMILY_COLORS[family ?? 'other'] ?? '#6b7280'
+  return FAMILY_COLORS[family ?? ''] ?? '#6b7280'
 }
 
 function getGenreOpacity(weight: number, maxWeight: number): number {

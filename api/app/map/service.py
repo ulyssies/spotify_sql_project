@@ -33,7 +33,6 @@ _FAMILY_LABELS = {
     "dream":      "Dream",
     "latin":      "Latin",
     "reggae":     "Reggae",
-    "other":      "Other",
 }
 
 
@@ -82,6 +81,25 @@ def get_genre_map(user_id: str, time_range: str) -> dict:
         for genre in (artist.get("genres") or []):
             artist_genres_merged[name].add(genre)
 
+    # Supplement with enriched artist_genres table — top_tracks/top_artists only
+    # carry Spotify genres (~49% coverage); artist_genres has Spotify + Last.fm (~88%).
+    all_names = list({
+        t["artist_name"] for t in tracks if t.get("artist_name")
+    } | {
+        a["artist_name"] for a in top_artists if a.get("artist_name")
+    })
+    if all_names:
+        enriched = (
+            supabase.table("artist_genres")
+            .select("artist_name, genres")
+            .in_("artist_name", all_names)
+            .execute()
+        ).data or []
+        for row in enriched:
+            name = row.get("artist_name", "")
+            for genre in (row.get("genres") or []):
+                artist_genres_merged[name].add(genre)
+
     genre_artist_pairs: set = set()
     genre_to_artists: dict = defaultdict(set)
 
@@ -90,7 +108,15 @@ def get_genre_map(user_id: str, time_range: str) -> dict:
             genre_artist_pairs.add((genre, artist_name))
             genre_to_artists[genre].add(artist_name)
 
-    genre_family: dict = {g: _classify_family(g) for g in genre_to_artists}
+    # Classify and immediately drop "other" — unclassified genres add noise without structure
+    genre_family: dict = {
+        g: _classify_family(g)
+        for g in genre_to_artists
+        if _classify_family(g) != "other"
+    }
+    # Rebuild genre_to_artists keeping only classified genres
+    genre_to_artists = {g: genre_to_artists[g] for g in genre_family}
+    genre_artist_pairs = {(g, a) for g, a in genre_artist_pairs if g in genre_family}
 
     genre_nodes = [
         {
@@ -102,7 +128,6 @@ def get_genre_map(user_id: str, time_range: str) -> dict:
         for g in genre_to_artists
     ]
 
-    # One parent node per family that has at least one genre
     family_weights: dict = defaultdict(int)
     for g, family in genre_family.items():
         family_weights[family] += len(genre_to_artists[g])
@@ -122,13 +147,14 @@ def get_genre_map(user_id: str, time_range: str) -> dict:
         for g in genre_to_artists
     ]
 
+    # Only include artists that have at least one classified genre
     artist_node_ids = {pair[1] for pair in genre_artist_pairs}
     artist_nodes = [
         {
             "id": a,
             "label": a,
             "track_count": artist_track_count.get(a, 0),
-            "genres": list(artist_genres_merged[a]),
+            "genres": [g for g in artist_genres_merged[a] if g in genre_family],
         }
         for a in artist_node_ids
     ]
