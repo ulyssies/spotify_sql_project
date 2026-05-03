@@ -1,13 +1,14 @@
 from collections import defaultdict
+from datetime import datetime, timedelta, timezone
 from itertools import combinations
-from typing import List
+from typing import List, Optional
 
 from app.database import supabase
 
 # Mirrors getGenreColor() priority order in GenreMap.tsx
 _FAMILY_CHECKS = [
     ("hip-hop",    ["rap", "hip hop", "hip-hop", "trap", "drill", "grime", "crunk", "bounce", "dirty south"]),
-    ("r-and-b",    ["r&b", "soul", "funk", "gospel", "motown", "neo soul", "quiet storm", "contemporary r", "urban"]),
+    ("r-and-b",    ["r&b", "rnb", "soul", "funk", "gospel", "motown", "neo soul", "quiet storm", "contemporary r", "urban"]),
     ("pop",        ["pop", "boy band", "girl group", "bubblegum", "europop", "k-pop", "j-pop", "c-pop"]),
     ("rock",       ["rock", "metal", "punk", "grunge", "hardcore", "emo", "screamo", "post-hardcore", "nu metal", "garage"]),
     ("indie",      ["indie", "alternative", "alt ", "lo-fi", "lo fi", "bedroom", "college", "jangle"]),
@@ -44,61 +45,41 @@ def _classify_family(genre: str) -> str:
     return "other"
 
 
-def get_genre_map(user_id: str, time_range: str) -> dict:
-    tracks_result = (
-        supabase.table("top_tracks")
-        .select("spotify_track_id, artist_name, genres")
-        .eq("user_id", user_id)
-        .eq("time_range", time_range)
-        .execute()
-    )
-    tracks = tracks_result.data or []
+_RANGE_CONFIG = {
+    # (start_offset_days | None, min_total_ms)
+    "short_term":  (28,  300_000),    #  5 minutes — 28-day window is already narrow
+    "medium_term": (180, 900_000),    # 15 minutes — 6-month window
+    "long_term":   (None, 3_600_000), # 60 minutes — all time
+}
 
-    artists_result = (
-        supabase.table("top_artists")
-        .select("artist_name, genres")
-        .eq("user_id", user_id)
-        .eq("time_range", time_range)
-        .execute()
-    )
-    top_artists = artists_result.data or []
+
+def _time_range_params(time_range: str) -> dict:
+    days, min_ms = _RANGE_CONFIG.get(time_range, (None, 1_800_000))
+    start_date = None
+    if days:
+        start_date = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+    return {"p_start_date": start_date, "p_min_total_ms": min_ms}
+
+
+def get_genre_map(user_id: str, time_range: str) -> dict:
+    params: dict = {"p_user_id": user_id, **_time_range_params(time_range)}
+
+    rows = (
+        supabase.rpc("get_map_artists", params).execute()
+    ).data or []
 
     artist_genres_merged: dict = defaultdict(set)
-    artist_track_count: dict = defaultdict(int)
+    artist_play_count: dict = defaultdict(int)
+    artist_ms: dict = defaultdict(int)
 
-    for track in tracks:
-        name = track.get("artist_name", "")
+    for row in rows:
+        name = row.get("artist_name", "")
         if not name:
             continue
-        artist_track_count[name] += 1
-        for genre in (track.get("genres") or []):
+        artist_play_count[name] = row.get("play_count", 0)
+        artist_ms[name] = row.get("total_ms_played", 0)
+        for genre in (row.get("genres") or []):
             artist_genres_merged[name].add(genre)
-
-    for artist in top_artists:
-        name = artist.get("artist_name", "")
-        if not name:
-            continue
-        for genre in (artist.get("genres") or []):
-            artist_genres_merged[name].add(genre)
-
-    # Supplement with enriched artist_genres table — top_tracks/top_artists only
-    # carry Spotify genres (~49% coverage); artist_genres has Spotify + Last.fm (~88%).
-    all_names = list({
-        t["artist_name"] for t in tracks if t.get("artist_name")
-    } | {
-        a["artist_name"] for a in top_artists if a.get("artist_name")
-    })
-    if all_names:
-        enriched = (
-            supabase.table("artist_genres")
-            .select("artist_name, genres")
-            .in_("artist_name", all_names)
-            .execute()
-        ).data or []
-        for row in enriched:
-            name = row.get("artist_name", "")
-            for genre in (row.get("genres") or []):
-                artist_genres_merged[name].add(genre)
 
     genre_artist_pairs: set = set()
     genre_to_artists: dict = defaultdict(set)
@@ -118,28 +99,90 @@ def get_genre_map(user_id: str, time_range: str) -> dict:
     genre_to_artists = {g: genre_to_artists[g] for g in genre_family}
     genre_artist_pairs = {(g, a) for g, a in genre_artist_pairs if g in genre_family}
 
+    # Roll up total_ms per subgenre from artist listening data
+    genre_ms: dict = {
+        g: sum(artist_ms[a] for a in genre_to_artists[g])
+        for g in genre_to_artists
+    }
+
+    # ── Subgenre filtering ────────────────────────────────────────────────────
+    MIN_SUBGENRE_MS = 3_600_000  # 1 hour
+    MAX_SUBGENRES_PER_FAMILY = 12
+
+    # snapshot counts before filtering for the log
+    family_before: dict = defaultdict(int)
+    for g, fam in genre_family.items():
+        family_before[fam] += 1
+
+    # 1. drop subgenres below the 1-hour threshold
+    genre_family = {g: fam for g, fam in genre_family.items() if genre_ms.get(g, 0) >= MIN_SUBGENRE_MS}
+
+    # 2. cap each family to its top 12 subgenres by total_ms
+    family_subgenres: dict = defaultdict(list)
+    for g, fam in genre_family.items():
+        family_subgenres[fam].append(g)
+
+    kept_genres: set = set()
+    for fam, genres in family_subgenres.items():
+        top_n = sorted(genres, key=lambda g: genre_ms[g], reverse=True)[:MAX_SUBGENRES_PER_FAMILY]
+        kept_genres.update(top_n)
+
+    genre_family     = {g: fam for g, fam in genre_family.items() if g in kept_genres}
+    genre_to_artists = {g: genre_to_artists[g] for g in genre_family}
+    genre_ms         = {g: ms for g, ms in genre_ms.items() if g in genre_family}
+    genre_artist_pairs = {(g, a) for g, a in genre_artist_pairs if g in genre_family}
+
+    # log before/after per family
+    family_after: dict = defaultdict(int)
+    for g, fam in genre_family.items():
+        family_after[fam] += 1
+    print("[genre_map] subgenre reduction per family:")
+    for fam in sorted(set(list(family_before.keys()) + list(family_after.keys()))):
+        label = _FAMILY_LABELS.get(fam, fam)
+        print(f"  {label}: {family_before.get(fam, 0)} → {family_after.get(fam, 0)}")
+
+    # ── Orphaned artists: all their subgenres were filtered out ───────────────
+    artists_with_subgenres = {a for _, a in genre_artist_pairs}
+    all_classified_artists = {
+        a for a in artist_genres_merged
+        if any(_classify_family(g) != "other" for g in artist_genres_merged[a])
+    }
+    orphaned: set = all_classified_artists - artists_with_subgenres
+
+    # assign each orphan to its dominant family (majority vote across its genre tags)
+    orphan_family: dict = {}
+    for a in orphaned:
+        votes: dict = defaultdict(int)
+        for g in artist_genres_merged[a]:
+            fam = _classify_family(g)
+            if fam != "other":
+                votes[fam] += 1
+        if votes:
+            orphan_family[a] = max(votes, key=lambda f: votes[f])
+
+    # ── Roll up family ms after filtering ────────────────────────────────────
+    family_ms: dict = defaultdict(int)
+    for g, family in genre_family.items():
+        family_ms[family] += genre_ms[g]
+
     genre_nodes = [
         {
             "id": g,
             "label": g,
-            "weight": len(genre_to_artists[g]),
+            "total_ms": genre_ms[g],
             "family": genre_family[g],
         }
         for g in genre_to_artists
     ]
-
-    family_weights: dict = defaultdict(int)
-    for g, family in genre_family.items():
-        family_weights[family] += len(genre_to_artists[g])
 
     parent_nodes = [
         {
             "id": f"parent:{family}",
             "label": _FAMILY_LABELS.get(family, family.title()),
             "family": family,
-            "weight": family_weights[family],
+            "total_ms": family_ms[family],
         }
-        for family in family_weights
+        for family in family_ms
     ]
 
     parent_genre_links = [
@@ -147,13 +190,14 @@ def get_genre_map(user_id: str, time_range: str) -> dict:
         for g in genre_to_artists
     ]
 
-    # Only include artists that have at least one classified genre
-    artist_node_ids = {pair[1] for pair in genre_artist_pairs}
+    # artists with subgenres + orphans reassigned to their parent family
+    artist_node_ids = artists_with_subgenres | set(orphan_family.keys())
     artist_nodes = [
         {
             "id": a,
             "label": a,
-            "track_count": artist_track_count.get(a, 0),
+            "play_count": artist_play_count.get(a, 0),
+            "total_ms": artist_ms.get(a, 0),
             "genres": [g for g in artist_genres_merged[a] if g in genre_family],
         }
         for a in artist_node_ids
@@ -162,6 +206,12 @@ def get_genre_map(user_id: str, time_range: str) -> dict:
     genre_artist_links = [
         {"source": genre, "target": artist}
         for genre, artist in genre_artist_pairs
+    ]
+
+    # direct parent→artist links for orphaned artists
+    parent_artist_links = [
+        {"source": f"parent:{orphan_family[a]}", "target": a}
+        for a in orphan_family
     ]
 
     affinity_links: List[dict] = []
@@ -181,6 +231,7 @@ def get_genre_map(user_id: str, time_range: str) -> dict:
         "artist_nodes": artist_nodes,
         "parent_genre_links": parent_genre_links,
         "genre_artist_links": genre_artist_links,
+        "parent_artist_links": parent_artist_links,
         "genre_affinity_links": affinity_links,
     }
 
