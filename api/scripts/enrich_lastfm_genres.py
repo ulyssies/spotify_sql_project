@@ -35,6 +35,7 @@ NON_GENRE_TAGS = {
     "my music", "all", "music", "songs", "albums", "bands", "artists",
     "spotify", "youtube", "soundcloud", "heard on pandora",
     "under 2000 listeners", "via lastfm",
+    "singer-songwriter", "singer songwriter",
 }
 
 

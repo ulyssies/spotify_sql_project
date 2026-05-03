@@ -79,9 +79,10 @@ BLOCKED_TAGS = {
     "seoul", "beijing", "shanghai", "mumbai", "lagos",
     "scandinavia", "nordic", "latin america", "latin",
     "appalachia", "pacific northwest", "deep south",
-    # ── Demographics ─────────────────────────────────────────────────────────
+    # ── Demographics / format descriptors ────────────────────────────────────
     "female vocalists", "male vocalists", "female vocalist", "male vocalist",
     "women", "men",
+    "singer-songwriter", "singer songwriter",
     # ── Noise / meta tags ────────────────────────────────────────────────────
     "seen live", "live",
     "favorites", "favourite", "favorites", "favourites",
