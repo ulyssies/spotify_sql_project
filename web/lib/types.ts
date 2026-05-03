@@ -73,10 +73,18 @@ export interface SyncResult {
   time_range: string
 }
 
+export interface ParentGenreNode {
+  id: string
+  label: string
+  family: string
+  weight: number
+}
+
 export interface GenreNode {
   id: string
   label: string
   weight: number
+  family: string
 }
 
 export interface ArtistMapNode {
@@ -96,8 +104,10 @@ export interface TrackNode {
 }
 
 export interface GenreMapData {
+  parent_nodes: ParentGenreNode[]
   genre_nodes: GenreNode[]
   artist_nodes: ArtistMapNode[]
+  parent_genre_links: { source: string; target: string }[]
   genre_artist_links: { source: string; target: string }[]
   genre_affinity_links: { source: string; target: string; shared: number }[]
 }

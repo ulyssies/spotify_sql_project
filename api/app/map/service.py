@@ -4,9 +4,48 @@ from typing import List
 
 from app.database import supabase
 
+# Mirrors getGenreColor() priority order in GenreMap.tsx
+_FAMILY_CHECKS = [
+    ("hip-hop",    ["rap", "hip hop", "hip-hop", "trap", "drill", "grime", "crunk", "bounce", "dirty south"]),
+    ("r-and-b",    ["r&b", "soul", "funk", "gospel", "motown", "neo soul", "quiet storm", "contemporary r", "urban"]),
+    ("pop",        ["pop", "boy band", "girl group", "bubblegum", "europop", "k-pop", "j-pop", "c-pop"]),
+    ("rock",       ["rock", "metal", "punk", "grunge", "hardcore", "emo", "screamo", "post-hardcore", "nu metal", "garage"]),
+    ("indie",      ["indie", "alternative", "alt ", "lo-fi", "lo fi", "bedroom", "college", "jangle"]),
+    ("electronic", ["electronic", "edm", "house", "techno", "trance", "dubstep", "drum and bass", "dnb", "electro", "ambient", "synthwave", "synth", "dance", "club", "rave", "bass", "beats", "chillwave", "vaporwave", "vapor", "wave"]),
+    ("folk",       ["folk", "country", "americana", "bluegrass", "western", "cowboy", "outlaw", "red dirt", "roots"]),
+    ("jazz",       ["jazz", "blues", "swing", "bebop", "bossa", "soul jazz", "latin jazz"]),
+    ("classical",  ["classical", "baroque", "orchestra", "opera", "chamber", "symphony", "choral", "choir", "piano", "string"]),
+    ("dream",      ["dream", "shoegaze", "slowcore", "witch", "goth", "dark", "atmospheric", "ethereal", "noise", "post rock", "post-rock"]),
+    ("latin",      ["latin", "reggaeton", "salsa", "cumbia", "bachata", "samba", "flamenco", "tropical"]),
+    ("reggae",     ["reggae", "ska", "dub", "dancehall", "afrobeat", "afropop"]),
+]
+
+_FAMILY_LABELS = {
+    "hip-hop":    "Hip-Hop",
+    "r-and-b":    "R&B",
+    "pop":        "Pop",
+    "rock":       "Rock",
+    "indie":      "Indie / Alt",
+    "electronic": "Electronic",
+    "folk":       "Folk",
+    "jazz":       "Jazz",
+    "classical":  "Classical",
+    "dream":      "Dream",
+    "latin":      "Latin",
+    "reggae":     "Reggae",
+    "other":      "Other",
+}
+
+
+def _classify_family(genre: str) -> str:
+    g = genre.lower()
+    for family, keywords in _FAMILY_CHECKS:
+        if any(kw in g for kw in keywords):
+            return family
+    return "other"
+
 
 def get_genre_map(user_id: str, time_range: str) -> dict:
-    # Fetch all rows from both tables — no limit, no threshold filtering.
     tracks_result = (
         supabase.table("top_tracks")
         .select("spotify_track_id, artist_name, genres")
@@ -25,8 +64,6 @@ def get_genre_map(user_id: str, time_range: str) -> dict:
     )
     top_artists = artists_result.data or []
 
-    # Build artist_name → merged genre set from BOTH sources.
-    # An artist present in both tables gets the union of both genre lists.
     artist_genres_merged: dict = defaultdict(set)
     artist_track_count: dict = defaultdict(int)
 
@@ -45,8 +82,6 @@ def get_genre_map(user_id: str, time_range: str) -> dict:
         for genre in (artist.get("genres") or []):
             artist_genres_merged[name].add(genre)
 
-    # Build graph from the merged per-artist genre sets.
-    # No minimum weight — every genre, no matter how rare, produces a node.
     genre_artist_pairs: set = set()
     genre_to_artists: dict = defaultdict(set)
 
@@ -55,12 +90,35 @@ def get_genre_map(user_id: str, time_range: str) -> dict:
             genre_artist_pairs.add((genre, artist_name))
             genre_to_artists[genre].add(artist_name)
 
+    genre_family: dict = {g: _classify_family(g) for g in genre_to_artists}
+
     genre_nodes = [
         {
             "id": g,
             "label": g,
             "weight": len(genre_to_artists[g]),
+            "family": genre_family[g],
         }
+        for g in genre_to_artists
+    ]
+
+    # One parent node per family that has at least one genre
+    family_weights: dict = defaultdict(int)
+    for g, family in genre_family.items():
+        family_weights[family] += len(genre_to_artists[g])
+
+    parent_nodes = [
+        {
+            "id": f"parent:{family}",
+            "label": _FAMILY_LABELS.get(family, family.title()),
+            "family": family,
+            "weight": family_weights[family],
+        }
+        for family in family_weights
+    ]
+
+    parent_genre_links = [
+        {"source": f"parent:{genre_family[g]}", "target": g}
         for g in genre_to_artists
     ]
 
@@ -92,8 +150,10 @@ def get_genre_map(user_id: str, time_range: str) -> dict:
             })
 
     return {
+        "parent_nodes": parent_nodes,
         "genre_nodes": genre_nodes,
         "artist_nodes": artist_nodes,
+        "parent_genre_links": parent_genre_links,
         "genre_artist_links": genre_artist_links,
         "genre_affinity_links": affinity_links,
     }
@@ -119,7 +179,6 @@ def get_artist_map(user_id: str, time_range: str) -> dict:
     )
     tracks = tracks_result.data or []
 
-    # Build artist id → artist record map
     artist_by_name: dict = {a["artist_name"]: a for a in artists}
 
     artist_nodes = [
@@ -133,7 +192,6 @@ def get_artist_map(user_id: str, time_range: str) -> dict:
         for a in artists
     ]
 
-    # Track nodes keyed to parent artist by name
     track_nodes = []
     for t in tracks:
         artist_rec = artist_by_name.get(t["artist_name"])
@@ -145,7 +203,6 @@ def get_artist_map(user_id: str, time_range: str) -> dict:
                 "artist_id": artist_rec["spotify_artist_id"],
             })
 
-    # Artist-artist links via shared genres
     artist_links: List[dict] = []
     for i, j in combinations(range(len(artists)), 2):
         a_i = artists[i]
