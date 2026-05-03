@@ -77,13 +77,13 @@ export interface ParentGenreNode {
   id: string
   label: string
   family: string
-  weight: number
+  total_ms: number
 }
 
 export interface GenreNode {
   id: string
   label: string
-  weight: number
+  total_ms: number
   family: string
 }
 
@@ -92,7 +92,8 @@ export interface ArtistMapNode {
   label: string
   image_url: string | null
   rank?: number
-  track_count?: number
+  play_count?: number
+  total_ms?: number
   genres: string[]
 }
 
@@ -109,6 +110,7 @@ export interface GenreMapData {
   artist_nodes: ArtistMapNode[]
   parent_genre_links: { source: string; target: string }[]
   genre_artist_links: { source: string; target: string }[]
+  parent_artist_links: { source: string; target: string }[]
   genre_affinity_links: { source: string; target: string; shared: number }[]
 }
 
