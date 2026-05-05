@@ -634,6 +634,8 @@ export function GenreMap({ data, tracks = [], historyTopTracks = [], yearly = []
       const relevantIds = relevantIdsRef.current
       const hoveredNode = hoveredNodeRef.current
       const lightweight = isInteractingRef.current
+      const zoomedInteraction = lightweight && tf.k >= 1.05
+      const interactionLinkScale = lightweight ? (tf.k >= 1.05 ? 0.66 : 0.28) : 1
 
       const dim = (id: string) => relevantIds === null ? 1 : relevantIds.has(id) ? 1 : 0.05
 
@@ -744,23 +746,22 @@ export function GenreMap({ data, tracks = [], historyTopTracks = [], yearly = []
         ctx.moveTo(s.x ?? 0, s.y ?? 0)
         ctx.lineTo(t.x ?? 0, t.y ?? 0)
         ctx.strokeStyle = withAlpha(familyColor(s.nodeType === 'parent' ? s.family : t.family), parentSubgenreColorAlpha(s, t))
-        ctx.lineWidth   = lightweight ? 0.7 : hoveredNode?.nodeType === 'artist' && hoveredNode.genres?.includes(t.id) && s.family === hoveredNode.family ? 1.6 : 1
-        ctx.globalAlpha = parentSubgenreAlpha(s, t) * (lightweight ? 0.42 : 1)
+        ctx.lineWidth   = lightweight ? (zoomedInteraction ? 0.9 : 0.7) : hoveredNode?.nodeType === 'artist' && hoveredNode.genres?.includes(t.id) && s.family === hoveredNode.family ? 1.6 : 1
+        ctx.globalAlpha = parentSubgenreAlpha(s, t) * interactionLinkScale
         ctx.stroke()
       }
 
       // 3. Genre-artist links
       ctx.strokeStyle = '#ffffff'
-      ctx.lineWidth   = lightweight ? 0.45 : 0.7
+      ctx.lineWidth   = lightweight ? (zoomedInteraction ? 0.58 : 0.45) : 0.7
       for (const l of genreArtistLinks) {
         const s = l.source as SimNode
         const t = l.target as SimNode
         if (!s?.x || !t?.x) continue
-        if (lightweight && !hoveredNode && relevantIds === null) continue
         ctx.beginPath()
         ctx.moveTo(s.x, s.y ?? 0)
         ctx.lineTo(t.x, t.y ?? 0)
-        ctx.globalAlpha = genreArtistAlpha(s, t) * (lightweight ? 0.35 : 1)
+        ctx.globalAlpha = genreArtistAlpha(s, t) * interactionLinkScale
         ctx.stroke()
       }
 
@@ -820,11 +821,12 @@ export function GenreMap({ data, tracks = [], historyTopTracks = [], yearly = []
       // 7. Labels
       ctx.textAlign    = 'center'
       ctx.textBaseline = 'middle'
-      if (lightweight) {
+      if (lightweight && !zoomedInteraction) {
         ctx.globalAlpha = 1
         ctx.restore()
         return
       }
+      const labelAlphaScale = lightweight ? 0.72 : 1
       for (const n of parentSimNodes) {
         drawNodeLabel(
           n.label,
@@ -832,10 +834,11 @@ export function GenreMap({ data, tracks = [], historyTopTracks = [], yearly = []
           n.y ?? 0,
           n.r * 1.45,
           Math.min(15, Math.max(10, n.r * 0.32)),
-          dim(n.id) * 0.94,
+          dim(n.id) * 0.94 * labelAlphaScale,
         )
       }
       for (const n of subgenreSimNodes) {
+        if (lightweight && tf.k < 1.35 && n.r < 10) continue
         const labelOp = Math.max(0.66, getGenreLabelOpacity(n.weight ?? 0, maxSubgenreMs)) * (n.r <= 12 ? 0.72 : 1)
         if (n.r >= 8.5) {
           drawNodeLabel(
@@ -844,7 +847,7 @@ export function GenreMap({ data, tracks = [], historyTopTracks = [], yearly = []
             n.y ?? 0,
             n.r * 1.75,
             Math.min(12, Math.max(8, n.r * 0.42)),
-            labelOp * dim(n.id),
+            labelOp * dim(n.id) * labelAlphaScale,
           )
         } else {
           drawNodeLabel(
@@ -853,11 +856,12 @@ export function GenreMap({ data, tracks = [], historyTopTracks = [], yearly = []
             (n.y ?? 0) + n.r + 9,
             48,
             7,
-            labelOp * dim(n.id) * 0.86,
+            labelOp * dim(n.id) * 0.86 * labelAlphaScale,
           )
         }
       }
       for (const n of artistSimNodes) {
+        if (lightweight && tf.k < 1.65) continue
         if ((n.rank ?? Infinity) > 12 || n.r < 8.5 || (n.signal ?? 0) < 0.16) continue
         drawNodeLabel(
           n.label,
@@ -865,7 +869,7 @@ export function GenreMap({ data, tracks = [], historyTopTracks = [], yearly = []
           (n.y ?? 0) + n.r + 8,
           Math.max(44, n.r * 5),
           Math.min(9, Math.max(7, n.r * 0.58)),
-          dim(n.id) * (0.44 + (n.signal ?? 0) * 0.5),
+          dim(n.id) * (0.44 + (n.signal ?? 0) * 0.5) * labelAlphaScale,
         )
       }
 
