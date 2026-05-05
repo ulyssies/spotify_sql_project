@@ -4,6 +4,8 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { useGenreMap, useArtistMap } from '@/hooks/useMapData'
+import { useTracks } from '@/hooks/useTracks'
+import { useHistoryTopTracks, useHistoryYearly } from '@/hooks/useHistoryData'
 import { GenreMap } from '@/components/map/GenreMap'
 import { ArtistWeb } from '@/components/map/ArtistWeb'
 import { Skeleton } from '@/components/ui/Skeleton'
@@ -33,6 +35,9 @@ function LoadingSkeleton() {
 
 function GenreView({ range }: { range: TimeRange }) {
   const { data, isLoading, error } = useGenreMap(range)
+  const { tracks } = useTracks(range)
+  const { data: yearly } = useHistoryYearly()
+  const { data: historyTopTracks } = useHistoryTopTracks(undefined, 100)
 
   if (isLoading) return <LoadingSkeleton />
 
@@ -47,7 +52,7 @@ function GenreView({ range }: { range: TimeRange }) {
     )
   }
 
-  return <GenreMap data={data} />
+  return <GenreMap data={data} tracks={tracks ?? []} historyTopTracks={historyTopTracks ?? []} yearly={yearly ?? []} />
 }
 
 function ArtistView({ range }: { range: TimeRange }) {
