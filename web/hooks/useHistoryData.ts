@@ -53,3 +53,11 @@ export function useHistoryTopTracks(year?: number, limit = 25) {
     SWR_OPTS,
   )
 }
+
+export function useHistoryArtistTopTracks(artistName?: string, limit = 25) {
+  return useSWR(
+    isAuthenticated() && artistName ? ['history/artist-top-tracks', artistName, limit] : null,
+    () => api.getHistoryArtistTopTracks(artistName!, limit),
+    SWR_OPTS,
+  )
+}

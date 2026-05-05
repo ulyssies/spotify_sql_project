@@ -83,4 +83,7 @@ export const api = {
 
   getHistoryTopTracks: (year?: number, limit = 25) =>
     request<TopTrack[]>(`/history/top-tracks?limit=${limit}${year ? `&year=${year}` : ''}`),
+
+  getHistoryArtistTopTracks: (artistName: string, limit = 25) =>
+    request<TopTrack[]>(`/history/artist-top-tracks?artist_name=${encodeURIComponent(artistName)}&limit=${limit}`),
 }

@@ -168,6 +168,7 @@ export interface TopTrack {
   spotify_track_uri: string
   plays: number
   total_ms: number
+  album_art_url?: string | null
 }
 
 export interface HistoryPatterns {

@@ -3,6 +3,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Query
 
 from app.auth.session import get_current_user
+from app.auth.spotify import get_spotify_client_for_user
 from app.history import service
 
 router = APIRouter(prefix="/history", tags=["history"])
@@ -48,4 +49,15 @@ async def get_top_tracks(
     limit: int = Query(25, ge=1, le=100),
     user: dict = Depends(get_current_user),
 ):
-    return service.get_top_tracks(user["id"], year=year, limit=limit)
+    sp = get_spotify_client_for_user(user)
+    return service.get_top_tracks(user["id"], year=year, limit=limit, sp=sp)
+
+
+@router.get("/artist-top-tracks")
+async def get_artist_top_tracks(
+    artist_name: str = Query(..., min_length=1),
+    limit: int = Query(25, ge=1, le=100),
+    user: dict = Depends(get_current_user),
+):
+    sp = get_spotify_client_for_user(user)
+    return service.get_artist_top_tracks(user["id"], artist_name=artist_name, limit=limit, sp=sp)
