@@ -197,6 +197,8 @@ export function GenreMap({ data, tracks = [], historyTopTracks = [], yearly = []
   const hoveredNodeRef  = useRef<SimNode | null>(null)
   const pinnedNodeRef   = useRef<SimNode | null>(null)
   const redrawRef       = useRef<(() => void) | null>(null)
+  const isInteractingRef = useRef(false)
+  const interactionTimeoutRef = useRef<number | null>(null)
   const selectedArtistName = selectedNode?.nodeType === 'artist' ? selectedNode.label : undefined
   const { data: selectedArtistTopTracks = [] } = useHistoryArtistTopTracks(selectedArtistName, 25)
 
@@ -631,6 +633,7 @@ export function GenreMap({ data, tracks = [], historyTopTracks = [], yearly = []
       const tf          = transformRef.current
       const relevantIds = relevantIdsRef.current
       const hoveredNode = hoveredNodeRef.current
+      const lightweight = isInteractingRef.current
 
       const dim = (id: string) => relevantIds === null ? 1 : relevantIds.has(id) ? 1 : 0.05
 
@@ -697,8 +700,8 @@ export function GenreMap({ data, tracks = [], historyTopTracks = [], yearly = []
         const color = familyColor(node.family)
         const glowRadius = node.r * baseMultiplier * (1 + signal * 0.55)
         const alphaBoost = isActive ? activeMultiplier : 0.22
-        const innerAlpha = (0.035 + signal * 0.075) * alphaBoost * alphaScale
-        const midAlpha = (0.018 + signal * 0.035) * alphaBoost * alphaScale
+        const innerAlpha = (0.022 + signal * 0.045) * alphaBoost * alphaScale
+        const midAlpha = (0.011 + signal * 0.022) * alphaBoost * alphaScale
         const gradient = ctx.createRadialGradient(
           node.x ?? 0, node.y ?? 0, node.r * 0.4,
           node.x ?? 0, node.y ?? 0, glowRadius,
@@ -719,14 +722,18 @@ export function GenreMap({ data, tracks = [], historyTopTracks = [], yearly = []
       ctx.scale(tf.k, tf.k)
 
       // 1. Shared hue field, scaled by listening weight.
-      for (const n of [...artistSimNodes].sort((a, b) => a.r - b.r)) {
-        drawNodeHue(n, 3.85, 1.04, 0.86)
-      }
-      for (const n of [...subgenreSimNodes].sort((a, b) => a.r - b.r)) {
-        drawNodeHue(n, 3.5, 1.12, 0.78)
-      }
-      for (const n of [...parentSimNodes].sort((a, b) => a.r - b.r)) {
-        drawNodeHue(n, 4.3, 1.18, 0.92)
+      // Gradients are intentionally skipped during pan/zoom; they are pretty, but
+      // expensive to repaint at fullscreen size.
+      if (!lightweight) {
+        for (const n of [...artistSimNodes].sort((a, b) => a.r - b.r)) {
+          drawNodeHue(n, 2.45, 1.02, 0.46)
+        }
+        for (const n of [...subgenreSimNodes].sort((a, b) => a.r - b.r)) {
+          drawNodeHue(n, 2.25, 1.08, 0.46)
+        }
+        for (const n of [...parentSimNodes].sort((a, b) => a.r - b.r)) {
+          drawNodeHue(n, 2.85, 1.12, 0.52)
+        }
       }
 
       // 2. Parent-subgenre links
@@ -737,22 +744,23 @@ export function GenreMap({ data, tracks = [], historyTopTracks = [], yearly = []
         ctx.moveTo(s.x ?? 0, s.y ?? 0)
         ctx.lineTo(t.x ?? 0, t.y ?? 0)
         ctx.strokeStyle = withAlpha(familyColor(s.nodeType === 'parent' ? s.family : t.family), parentSubgenreColorAlpha(s, t))
-        ctx.lineWidth   = hoveredNode?.nodeType === 'artist' && hoveredNode.genres?.includes(t.id) && s.family === hoveredNode.family ? 1.6 : 1
-        ctx.globalAlpha = parentSubgenreAlpha(s, t)
+        ctx.lineWidth   = lightweight ? 0.7 : hoveredNode?.nodeType === 'artist' && hoveredNode.genres?.includes(t.id) && s.family === hoveredNode.family ? 1.6 : 1
+        ctx.globalAlpha = parentSubgenreAlpha(s, t) * (lightweight ? 0.42 : 1)
         ctx.stroke()
       }
 
       // 3. Genre-artist links
       ctx.strokeStyle = '#ffffff'
-      ctx.lineWidth   = 0.7
+      ctx.lineWidth   = lightweight ? 0.45 : 0.7
       for (const l of genreArtistLinks) {
         const s = l.source as SimNode
         const t = l.target as SimNode
         if (!s?.x || !t?.x) continue
+        if (lightweight && !hoveredNode && relevantIds === null) continue
         ctx.beginPath()
         ctx.moveTo(s.x, s.y ?? 0)
         ctx.lineTo(t.x, t.y ?? 0)
-        ctx.globalAlpha = genreArtistAlpha(s, t)
+        ctx.globalAlpha = genreArtistAlpha(s, t) * (lightweight ? 0.35 : 1)
         ctx.stroke()
       }
 
@@ -793,8 +801,10 @@ export function GenreMap({ data, tracks = [], historyTopTracks = [], yearly = []
         ctx.beginPath()
         ctx.arc(n.x ?? 0, n.y ?? 0, n.r * 1.25, 0, 2 * Math.PI)
         ctx.fillStyle   = color
-        ctx.globalAlpha = (0.042 + signal * 0.08) * d
-        ctx.fill()
+        if (!lightweight) {
+          ctx.globalAlpha = (0.028 + signal * 0.052) * d
+          ctx.fill()
+        }
         ctx.beginPath()
         ctx.arc(n.x ?? 0, n.y ?? 0, n.r, 0, 2 * Math.PI)
         ctx.fillStyle   = color
@@ -810,6 +820,11 @@ export function GenreMap({ data, tracks = [], historyTopTracks = [], yearly = []
       // 7. Labels
       ctx.textAlign    = 'center'
       ctx.textBaseline = 'middle'
+      if (lightweight) {
+        ctx.globalAlpha = 1
+        ctx.restore()
+        return
+      }
       for (const n of parentSimNodes) {
         drawNodeLabel(
           n.label,
@@ -860,9 +875,42 @@ export function GenreMap({ data, tracks = [], historyTopTracks = [], yearly = []
     redrawRef.current = draw
 
     // ── Zoom (canvas) ─────────────────────────────────────────────────────────
+    let zoomFrame: number | null = null
+
+    function scheduleDraw() {
+      if (zoomFrame !== null) return
+      zoomFrame = window.requestAnimationFrame(() => {
+        zoomFrame = null
+        draw()
+      })
+    }
+
+    function beginInteraction() {
+      if (interactionTimeoutRef.current) {
+        window.clearTimeout(interactionTimeoutRef.current)
+        interactionTimeoutRef.current = null
+      }
+      isInteractingRef.current = true
+      scheduleDraw()
+    }
+
+    function settleInteraction() {
+      if (interactionTimeoutRef.current) window.clearTimeout(interactionTimeoutRef.current)
+      interactionTimeoutRef.current = window.setTimeout(() => {
+        isInteractingRef.current = false
+        interactionTimeoutRef.current = null
+        draw()
+      }, 140)
+    }
+
     const zoom = d3.zoom<HTMLCanvasElement, unknown>()
       .scaleExtent([0.3, 5])
-      .on('zoom', (event) => { transformRef.current = event.transform; draw() })
+      .on('start', beginInteraction)
+      .on('zoom', (event) => {
+        transformRef.current = event.transform
+        scheduleDraw()
+      })
+      .on('end', settleInteraction)
     d3.select(canvas).call(zoom)
 
     // ── Simulation ────────────────────────────────────────────────────────────
@@ -1009,6 +1057,12 @@ export function GenreMap({ data, tracks = [], historyTopTracks = [], yearly = []
 
     return () => {
       simulation.stop()
+      if (zoomFrame !== null) window.cancelAnimationFrame(zoomFrame)
+      if (interactionTimeoutRef.current) {
+        window.clearTimeout(interactionTimeoutRef.current)
+        interactionTimeoutRef.current = null
+      }
+      isInteractingRef.current = false
       canvas.removeEventListener('mousemove', onMouseMove)
       canvas.removeEventListener('mouseleave', onMouseLeave)
       canvas.removeEventListener('click', onClick)
