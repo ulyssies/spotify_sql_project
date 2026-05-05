@@ -7,7 +7,7 @@ import { BrandLogo } from './BrandLogo'
 
 export function Navbar() {
   const pathname = usePathname()
-  const showRangeSelector = !pathname.includes('/recommendations')
+  const showRangeSelector = !pathname.includes('/recommendations') && pathname !== '/dashboard/map'
 
   return (
     <header className="shrink-0 border-b border-border px-4 py-3 sm:px-6 sm:py-4 flex items-center justify-between gap-4">

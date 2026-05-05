@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useMemo } from 'react'
 import * as d3 from 'd3'
 import { useHistoryArtistTopTracks } from '@/hooks/useHistoryData'
+import { useUser } from '@/hooks/useUser'
 import type { GenreMapData, TopTrack, Track, YearStat } from '@/lib/types'
 
 interface Props {
@@ -13,7 +14,7 @@ interface Props {
 }
 
 interface SimNode extends d3.SimulationNodeDatum {
-  id: string; label: string; nodeType: 'parent' | 'subgenre' | 'artist'
+  id: string; label: string; nodeType: 'root' | 'parent' | 'subgenre' | 'artist'
   r: number; weight?: number; family?: string; play_count?: number; genres?: string[]
   signal?: number; rank?: number
   ringTarget?: number; ringInner?: number; ringOuter?: number
@@ -25,6 +26,7 @@ interface SimLink extends d3.SimulationLinkDatum<SimNode> {
 }
 
 const FAMILY_COLORS: Record<string, string> = {
+  'profile':    '#54d8b2',
   'hip-hop':    '#ef4444',
   'r-and-b':    '#f59e0b',
   'pop':        '#f472b6',
@@ -38,6 +40,8 @@ const FAMILY_COLORS: Record<string, string> = {
   'latin':      '#fb923c',
   'reggae':     '#facc15',
 }
+
+const ROOT_NODE_ID = 'root:profile'
 
 const FAMILY_HUE: Record<string, number> = {
   'hip-hop': 0, 'latin': 24, 'r-and-b': 38, 'reggae': 48,
@@ -199,8 +203,30 @@ export function GenreMap({ data, tracks = [], historyTopTracks = [], yearly = []
   const redrawRef       = useRef<(() => void) | null>(null)
   const isInteractingRef = useRef(false)
   const interactionTimeoutRef = useRef<number | null>(null)
+  const profileImageRef = useRef<HTMLImageElement | null>(null)
+  const { user } = useUser()
   const selectedArtistName = selectedNode?.nodeType === 'artist' ? selectedNode.label : undefined
   const { data: selectedArtistTopTracks = [] } = useHistoryArtistTopTracks(selectedArtistName, 25)
+
+  useEffect(() => {
+    if (!user?.avatar_url) {
+      profileImageRef.current = null
+      redrawRef.current?.()
+      return
+    }
+
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => {
+      profileImageRef.current = img
+      redrawRef.current?.()
+    }
+    img.onerror = () => {
+      profileImageRef.current = null
+      redrawRef.current?.()
+    }
+    img.src = user.avatar_url
+  }, [user?.avatar_url])
 
   useEffect(() => {
     const el = containerRef.current
@@ -428,6 +454,7 @@ export function GenreMap({ data, tracks = [], historyTopTracks = [], yearly = []
 
     const artistById = new Map(artistSimNodes.map((artist) => [artist.id, artist]))
     const selectedArtists = (() => {
+      if (selectedNode.nodeType === 'root') return artistSimNodes
       if (selectedNode.nodeType === 'artist') return [selectedNode]
       if (selectedNode.nodeType === 'parent') {
         return artistSimNodes.filter((artist) => artist.family === selectedNode.family)
@@ -444,6 +471,7 @@ export function GenreMap({ data, tracks = [], historyTopTracks = [], yearly = []
     const familyForGenre = (genre: string) => genreFamilyMap.get(genre)
     const trackMatchesSelection = (track: Track) => {
       const genres = track.genres ?? []
+      if (selectedNode.nodeType === 'root') return true
       if (selectedNode.nodeType === 'artist') {
         return track.artist_name.toLowerCase() === selectedNode.label.toLowerCase()
       }
@@ -455,6 +483,7 @@ export function GenreMap({ data, tracks = [], historyTopTracks = [], yearly = []
 
     const selectedArtistNames = new Set(selectedArtists.map((artist) => artist.label.toLowerCase()))
     const historyTrackMatchesSelection = (track: TopTrack) => {
+      if (selectedNode.nodeType === 'root') return true
       if (selectedNode.nodeType === 'artist') {
         return track.artist_name.toLowerCase() === selectedNode.label.toLowerCase()
       }
@@ -500,6 +529,19 @@ export function GenreMap({ data, tracks = [], historyTopTracks = [], yearly = []
       .slice(0, 8)
 
     const subgenreMix = (() => {
+      if (selectedNode.nodeType === 'root') {
+        const items = [...subgenreSimNodes]
+          .map((node) => ({
+            id: node.id,
+            label: node.label,
+            value: node.weight ?? 0,
+            color: familyColor(node.family),
+          }))
+          .sort((a, b) => b.value - a.value)
+          .slice(0, 8)
+        const total = items.reduce((sum, item) => sum + item.value, 0) || 1
+        return items.map((item) => ({ ...item, percent: Math.round((item.value / total) * 100) }))
+      }
       if (selectedNode.nodeType === 'subgenre') {
         return [{ id: selectedNode.id, label: selectedNode.label, value: selectedNode.weight ?? 0, percent: 100, color: familyColor(selectedNode.family) }]
       }
@@ -522,24 +564,28 @@ export function GenreMap({ data, tracks = [], historyTopTracks = [], yearly = []
     })()
 
     const totalParentMs = parentSimNodes.reduce((sum, node) => sum + (node.weight ?? 0), 0) || 1
-    const selectedMs = selectedNode.weight ?? topArtists.reduce((sum, node) => sum + (node.weight ?? 0), 0)
+    const selectedMs = selectedNode.nodeType === 'root'
+      ? totalParentMs
+      : selectedNode.weight ?? topArtists.reduce((sum, node) => sum + (node.weight ?? 0), 0)
     const share = Math.max(0.03, Math.min(0.85, selectedMs / totalParentMs))
     const yearBars = yearly
       .slice()
       .sort((a, b) => a.year - b.year)
       .map((year) => ({
         year: year.year,
-        ms: Math.round(year.total_ms * share),
+        ms: selectedNode.nodeType === 'root' ? year.total_ms : Math.round(year.total_ms * share),
       }))
 
-    const subgenreCount = selectedNode.nodeType === 'parent'
+    const subgenreCount = selectedNode.nodeType === 'root'
+      ? subgenreSimNodes.length
+      : selectedNode.nodeType === 'parent'
       ? (parentSubgenreMap.get(selectedNode.id) ?? []).length
       : selectedNode.nodeType === 'subgenre'
         ? 1
         : selectedNode.genres?.length ?? 0
 
     return {
-      color: familyColor(selectedNode.family),
+      color: familyColor(selectedNode.nodeType === 'root' ? 'profile' : selectedNode.family),
       selectedMs,
       subgenreCount,
       artistCount: selectedArtists.length,
@@ -578,10 +624,23 @@ export function GenreMap({ data, tracks = [], historyTopTracks = [], yearly = []
 
     const cx = width * 0.54
     const cy = height * 0.52
-    const boundaryRadius  = Math.min(width * 0.45, height * 0.49)
-    const parentRing      = { inner: 0, outer: boundaryRadius * 0.29, target: boundaryRadius * 0.18 }
-    const subgenreRing    = { inner: boundaryRadius * 0.36, outer: boundaryRadius * 0.62, target: boundaryRadius * 0.48 }
-    const artistRing      = { inner: boundaryRadius * 0.50, outer: boundaryRadius * 1.04, target: boundaryRadius * 0.78 }
+    const boundaryRadius  = Math.min(width * 0.49, height * 0.53)
+    const parentRing      = { inner: 0, outer: boundaryRadius * 0.3, target: boundaryRadius * 0.19 }
+    const subgenreRing    = { inner: boundaryRadius * 0.37, outer: boundaryRadius * 0.64, target: boundaryRadius * 0.5 }
+    const artistRing      = { inner: boundaryRadius * 0.51, outer: boundaryRadius * 1.08, target: boundaryRadius * 0.8 }
+    const rootNode: SimNode = {
+      id: ROOT_NODE_ID,
+      label: user?.display_name ?? 'Your Music',
+      nodeType: 'root',
+      r: Math.max(34, Math.min(54, boundaryRadius * 0.095)),
+      weight: parentSimNodes.reduce((sum, node) => sum + (node.weight ?? 0), 0),
+      family: 'profile',
+      signal: 1,
+      x: cx,
+      y: cy,
+      fx: cx,
+      fy: cy,
+    }
 
     const nodes: SimNode[] = [...parentSimNodes, ...subgenreSimNodes, ...artistSimNodes]
 
@@ -665,7 +724,7 @@ export function GenreMap({ data, tracks = [], historyTopTracks = [], yearly = []
       }
 
       function parentSubgenreAlpha(source: SimNode, target: SimNode): number {
-        if (!hoveredNode) return 1
+        if (!hoveredNode || hoveredNode.nodeType === 'root') return 1
         if (hoveredNode.nodeType === 'parent') {
           return source.id === hoveredNode.id ? 0.8 : 0.02
         }
@@ -683,7 +742,7 @@ export function GenreMap({ data, tracks = [], historyTopTracks = [], yearly = []
       }
 
       function genreArtistAlpha(source: SimNode, target: SimNode): number {
-        if (!hoveredNode) return 0.08
+        if (!hoveredNode || hoveredNode.nodeType === 'root') return 0.08
         if (hoveredNode.nodeType === 'parent') {
           return target.family === hoveredNode.family ? 0.18 : 0.01
         }
@@ -716,6 +775,53 @@ export function GenreMap({ data, tracks = [], historyTopTracks = [], yearly = []
         ctx.fillStyle = gradient
         ctx.globalAlpha = 1
         ctx.fill()
+      }
+
+      function drawProfileNode(node: SimNode) {
+        const x = node.x ?? cx
+        const y = node.y ?? cy
+        const color = familyColor('profile')
+        const active = relevantIds === null || relevantIds.has(ROOT_NODE_ID)
+        const alpha = active ? 1 : 0.32
+        const img = profileImageRef.current
+
+        drawNodeHue(node, 3.6, active ? 1.2 : 0.35, 0.78)
+
+        ctx.save()
+        ctx.beginPath()
+        ctx.arc(x, y, node.r, 0, 2 * Math.PI)
+        ctx.clip()
+        if (img) {
+          ctx.globalAlpha = alpha
+          ctx.drawImage(img, x - node.r, y - node.r, node.r * 2, node.r * 2)
+        } else {
+          const gradient = ctx.createRadialGradient(x - node.r * 0.3, y - node.r * 0.35, node.r * 0.15, x, y, node.r)
+          gradient.addColorStop(0, '#82f4d4')
+          gradient.addColorStop(1, color)
+          ctx.globalAlpha = alpha
+          ctx.fillStyle = gradient
+          ctx.fillRect(x - node.r, y - node.r, node.r * 2, node.r * 2)
+          ctx.font = `800 ${Math.max(16, node.r * 0.46)}px sans-serif`
+          ctx.textAlign = 'center'
+          ctx.textBaseline = 'middle'
+          ctx.fillStyle = '#062018'
+          ctx.globalAlpha = alpha
+          ctx.fillText(node.label.slice(0, 1).toUpperCase(), x, y + 1)
+        }
+        ctx.restore()
+
+        ctx.beginPath()
+        ctx.arc(x, y, node.r + 2.5, 0, 2 * Math.PI)
+        ctx.strokeStyle = withAlpha(color, active ? 0.92 : 0.34)
+        ctx.lineWidth = active ? 3.4 : 2
+        ctx.globalAlpha = 1
+        ctx.stroke()
+
+        ctx.beginPath()
+        ctx.arc(x, y, node.r + 8, 0, 2 * Math.PI)
+        ctx.strokeStyle = withAlpha('#ffffff', active ? 0.18 : 0.06)
+        ctx.lineWidth = 1.2
+        ctx.stroke()
       }
 
       ctx.clearRect(0, 0, width, height)
@@ -817,6 +923,7 @@ export function GenreMap({ data, tracks = [], historyTopTracks = [], yearly = []
           ctx.stroke()
         }
       }
+      drawProfileNode(rootNode)
 
       // 7. Labels
       ctx.textAlign    = 'center'
@@ -954,6 +1061,9 @@ export function GenreMap({ data, tracks = [], historyTopTracks = [], yearly = []
       const { x, y, k } = transformRef.current
       const sx = (mx - x) / k
       const sy = (my - y) / k
+      const rootDx = (rootNode.x ?? 0) - sx
+      const rootDy = (rootNode.y ?? 0) - sy
+      if (Math.sqrt(rootDx * rootDx + rootDy * rootDy) <= rootNode.r + 8) return rootNode
       for (const n of [...parentSimNodes, ...subgenreSimNodes, ...artistSimNodes]) {
         const dx = (n.x ?? 0) - sx
         const dy = (n.y ?? 0) - sy
@@ -963,6 +1073,14 @@ export function GenreMap({ data, tracks = [], historyTopTracks = [], yearly = []
     }
 
     function buildRelevantIds(d: SimNode): Set<string> {
+      if (d.nodeType === 'root') {
+        return new Set([
+          ROOT_NODE_ID,
+          ...parentSimNodes.map((node) => node.id),
+          ...subgenreSimNodes.map((node) => node.id),
+          ...artistSimNodes.map((node) => node.id),
+        ])
+      }
       const neighbors = connected.get(d.id) ?? new Set<string>()
       const relevant  = new Set([d.id, ...Array.from(neighbors)])
       if (d.nodeType === 'parent') {
@@ -983,7 +1101,13 @@ export function GenreMap({ data, tracks = [], historyTopTracks = [], yearly = []
     }
 
     function showTooltip(event: MouseEvent, d: SimNode) {
-      if (d.nodeType === 'parent') {
+      if (d.nodeType === 'root') {
+        tooltip.innerHTML = `
+          <p style="color:${familyColor('profile')};font-weight:600;margin-bottom:4px">${d.label}</p>
+          <p style="color:#a3a3a3;font-size:11px;margin-bottom:4px">${formatListeningTime(d.weight)} listened</p>
+          <p style="color:#666;font-size:11px">Click to open your full listening history.</p>
+        `
+      } else if (d.nodeType === 'parent') {
         const subgenres    = parentSubgenreMap.get(d.id) ?? []
         const totalArtists = new Set(subgenres.flatMap((sg) => genreArtistsMap.get(sg) ?? []))
         tooltip.innerHTML  = `
@@ -1071,7 +1195,7 @@ export function GenreMap({ data, tracks = [], historyTopTracks = [], yearly = []
       canvas.removeEventListener('mouseleave', onMouseLeave)
       canvas.removeEventListener('click', onClick)
     }
-  }, [graphData, dims])
+  }, [graphData, dims, user?.display_name])
 
   function closeDetailPanel() {
     pinnedNodeRef.current = null
@@ -1115,7 +1239,7 @@ export function GenreMap({ data, tracks = [], historyTopTracks = [], yearly = []
 
           <div className="pr-10">
             <p className="text-xs uppercase tracking-[0.18em] text-[#777]">
-              {selectedNode.nodeType === 'parent' ? 'Genre' : selectedNode.nodeType === 'subgenre' ? 'Subgenre' : 'Artist'}
+              {selectedNode.nodeType === 'root' ? 'Profile' : selectedNode.nodeType === 'parent' ? 'Genre' : selectedNode.nodeType === 'subgenre' ? 'Subgenre' : 'Artist'}
             </p>
             <h2 className="mt-1 font-syne text-2xl font-bold text-white">{selectedNode.label}</h2>
             <p className="mt-1 text-sm text-[#9a9a9a]">{formatListeningTime(detailData.selectedMs)} listened</p>
@@ -1189,7 +1313,9 @@ export function GenreMap({ data, tracks = [], historyTopTracks = [], yearly = []
           <section className="mt-5">
             <div className="mb-2 flex items-center justify-between">
               <h3 className="text-sm font-semibold text-white">Listening By Year</h3>
-              <span className="text-[10px] uppercase tracking-wider text-[#666]">weighted</span>
+              <span className="text-[10px] uppercase tracking-wider text-[#666]">
+                {selectedNode.nodeType === 'root' ? 'actual' : 'weighted'}
+              </span>
             </div>
             {detailData.yearBars.length ? (
               <div className="flex h-28 items-end gap-1 rounded-lg bg-[#151515] p-3">
