@@ -16,6 +16,12 @@ venv/
 # Spotipy token cache
 .cache
 
+# Local agent/session files
+.agents/
+.claude/
+AGENTS.md
+CODEX.md
+
 # macOS system files
 .DS_Store
 
