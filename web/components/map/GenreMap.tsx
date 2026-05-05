@@ -625,14 +625,21 @@ export function GenreMap({ data, tracks = [], historyTopTracks = [], yearly = []
     const cx = width * 0.54
     const cy = height * 0.52
     const boundaryRadius  = Math.min(width * 0.49, height * 0.53)
-    const parentRing      = { inner: 0, outer: boundaryRadius * 0.3, target: boundaryRadius * 0.19 }
-    const subgenreRing    = { inner: boundaryRadius * 0.37, outer: boundaryRadius * 0.64, target: boundaryRadius * 0.5 }
-    const artistRing      = { inner: boundaryRadius * 0.51, outer: boundaryRadius * 1.08, target: boundaryRadius * 0.8 }
+    const maxParentRadius = Math.max(...parentSimNodes.map((node) => node.r), 36)
+    const rootRadius      = Math.min(68, Math.max(maxParentRadius + 10, boundaryRadius * 0.105))
+    const centerGap       = Math.max(34, boundaryRadius * 0.072)
+    const parentRing      = {
+      inner: rootRadius + centerGap,
+      outer: Math.max(boundaryRadius * 0.36, rootRadius + centerGap + maxParentRadius * 2.4),
+      target: Math.max(boundaryRadius * 0.27, rootRadius + centerGap + maxParentRadius + 18),
+    }
+    const subgenreRing    = { inner: boundaryRadius * 0.43, outer: boundaryRadius * 0.7, target: boundaryRadius * 0.56 }
+    const artistRing      = { inner: boundaryRadius * 0.58, outer: boundaryRadius * 1.13, target: boundaryRadius * 0.86 }
     const rootNode: SimNode = {
       id: ROOT_NODE_ID,
       label: user?.display_name ?? 'Your Music',
       nodeType: 'root',
-      r: Math.max(34, Math.min(54, boundaryRadius * 0.095)),
+      r: rootRadius,
       weight: parentSimNodes.reduce((sum, node) => sum + (node.weight ?? 0), 0),
       family: 'profile',
       signal: 1,
