@@ -3,6 +3,7 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { isAuthenticated } from '@/lib/auth'
+import { BrandLogo } from '@/components/layout/BrandLogo'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api/v1'
 
@@ -18,9 +19,7 @@ export default function LandingPage() {
   return (
     <main className="landing-shell relative h-[100svh] min-h-[620px] overflow-hidden overscroll-none bg-landing px-6 py-8 text-primary">
       <div className="absolute left-6 right-6 top-6 z-20 mx-auto flex max-w-7xl items-center justify-between">
-        <span className="font-syne text-sm font-bold text-primary">
-          SpotYourVibe
-        </span>
+        <BrandLogo href="/" />
         <span className="hidden rounded-full border border-white/10 bg-white/[0.035] px-4 py-2 font-mono text-[11px] uppercase tracking-[0.12em] text-zinc-400 sm:inline-flex">
           Spotify taste intelligence
         </span>

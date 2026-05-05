@@ -24,6 +24,11 @@ const dmMono = DM_Mono({
 export const metadata: Metadata = {
   title: 'SpotYourVibe',
   description: 'Your listening. Visualized.',
+  icons: {
+    icon: '/brand/spotyourvibe-mark.png',
+    shortcut: '/brand/spotyourvibe-mark.png',
+    apple: '/brand/spotyourvibe-mark.png',
+  },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
