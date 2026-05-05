@@ -627,14 +627,14 @@ export function GenreMap({ data, tracks = [], historyTopTracks = [], yearly = []
     const boundaryRadius  = Math.min(width * 0.49, height * 0.53)
     const maxParentRadius = Math.max(...parentSimNodes.map((node) => node.r), 36)
     const rootRadius      = Math.min(68, Math.max(maxParentRadius + 10, boundaryRadius * 0.105))
-    const centerGap       = Math.max(34, boundaryRadius * 0.072)
+    const centerGap       = Math.max(16, boundaryRadius * 0.034)
     const parentRing      = {
       inner: rootRadius + centerGap,
-      outer: Math.max(boundaryRadius * 0.36, rootRadius + centerGap + maxParentRadius * 2.4),
-      target: Math.max(boundaryRadius * 0.27, rootRadius + centerGap + maxParentRadius + 18),
+      outer: Math.max(boundaryRadius * 0.32, rootRadius + centerGap + maxParentRadius * 1.75),
+      target: Math.max(boundaryRadius * 0.22, rootRadius + centerGap + maxParentRadius * 0.72),
     }
-    const subgenreRing    = { inner: boundaryRadius * 0.43, outer: boundaryRadius * 0.7, target: boundaryRadius * 0.56 }
-    const artistRing      = { inner: boundaryRadius * 0.58, outer: boundaryRadius * 1.13, target: boundaryRadius * 0.86 }
+    const subgenreRing    = { inner: boundaryRadius * 0.39, outer: boundaryRadius * 0.66, target: boundaryRadius * 0.52 }
+    const artistRing      = { inner: boundaryRadius * 0.54, outer: boundaryRadius * 1.1, target: boundaryRadius * 0.83 }
     const rootNode: SimNode = {
       id: ROOT_NODE_ID,
       label: user?.display_name ?? 'Your Music',
@@ -935,12 +935,7 @@ export function GenreMap({ data, tracks = [], historyTopTracks = [], yearly = []
       // 7. Labels
       ctx.textAlign    = 'center'
       ctx.textBaseline = 'middle'
-      if (lightweight && !zoomedInteraction) {
-        ctx.globalAlpha = 1
-        ctx.restore()
-        return
-      }
-      const labelAlphaScale = lightweight ? 0.72 : 1
+      const labelAlphaScale = 1
       for (const n of parentSimNodes) {
         drawNodeLabel(
           n.label,
@@ -952,7 +947,6 @@ export function GenreMap({ data, tracks = [], historyTopTracks = [], yearly = []
         )
       }
       for (const n of subgenreSimNodes) {
-        if (lightweight && tf.k < 1.35 && n.r < 10) continue
         const labelOp = Math.max(0.66, getGenreLabelOpacity(n.weight ?? 0, maxSubgenreMs)) * (n.r <= 12 ? 0.72 : 1)
         if (n.r >= 8.5) {
           drawNodeLabel(
@@ -975,7 +969,6 @@ export function GenreMap({ data, tracks = [], historyTopTracks = [], yearly = []
         }
       }
       for (const n of artistSimNodes) {
-        if (lightweight && tf.k < 1.65) continue
         if ((n.rank ?? Infinity) > 12 || n.r < 8.5 || (n.signal ?? 0) < 0.16) continue
         drawNodeLabel(
           n.label,
