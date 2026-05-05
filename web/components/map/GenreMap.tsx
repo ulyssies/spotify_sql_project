@@ -563,11 +563,12 @@ export function GenreMap({ data, tracks = [], historyTopTracks = [], yearly = []
       nodeAngles, familyCenterAngles, sectorWidth, maxSubgenreMs, weightByGenreId,
     } = graphData
 
-    // Scale canvas for device pixel ratio
-    const dpr = window.devicePixelRatio || 1
+    // Fullscreen/high-DPI browsers can otherwise allocate a huge canvas and redraw it
+    // every tick, which makes the dense map feel much heavier than the smaller app view.
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.25)
     const { width, height } = dims
-    canvas.width  = width  * dpr
-    canvas.height = height * dpr
+    canvas.width  = Math.floor(width  * dpr)
+    canvas.height = Math.floor(height * dpr)
     canvas.style.width  = `${width}px`
     canvas.style.height = `${height}px`
     const ctx = canvas.getContext('2d')!
