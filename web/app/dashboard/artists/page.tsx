@@ -11,9 +11,9 @@ import type { TimeRange } from '@/lib/types'
 
 function GridSkeleton() {
   return (
-    <div className="-mx-1 flex gap-5 overflow-hidden px-1 pb-3">
+    <div className="-mx-1 flex gap-4 overflow-hidden px-1 pb-3">
       {Array.from({ length: 12 }).map((_, i) => (
-        <div key={i} className="flex w-[176px] shrink-0 flex-col items-center space-y-2 sm:w-[190px]">
+        <div key={i} className="flex w-[88px] shrink-0 flex-col items-center space-y-2 sm:w-[96px]">
           <Skeleton className="aspect-square w-full rounded-full" />
           <Skeleton className="h-3.5 w-3/4" />
           <Skeleton className="h-3 w-1/2" />

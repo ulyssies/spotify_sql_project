@@ -13,7 +13,7 @@ function GridSkeleton() {
   return (
     <div className="-mx-1 flex gap-3 overflow-hidden px-1 pb-3 sm:gap-4">
       {Array.from({ length: 12 }).map((_, i) => (
-        <div key={i} className="w-[190px] shrink-0 space-y-2 rounded-lg border border-white/[0.06] bg-[#121212] p-2.5 sm:w-[210px]">
+        <div key={i} className="w-[96px] shrink-0 space-y-2 rounded-lg border border-white/[0.06] bg-[#121212] p-1.5 sm:w-[106px]">
           <Skeleton className="aspect-[16/9] w-full rounded-md" />
           <Skeleton className="h-3.5 w-3/4" />
           <Skeleton className="h-3 w-1/2" />

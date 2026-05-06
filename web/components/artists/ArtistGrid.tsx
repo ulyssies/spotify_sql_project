@@ -16,9 +16,9 @@ export function ArtistGrid({ artists }: ArtistGridProps) {
   }
 
   return (
-    <HorizontalScroller className="gap-5">
+    <HorizontalScroller className="gap-4">
       {artists.map((artist) => (
-        <div key={artist.id} className="w-[176px] shrink-0 sm:w-[190px]">
+        <div key={artist.id} className="w-[88px] shrink-0 sm:w-[96px]">
           <ArtistCard artist={artist} />
         </div>
       ))}
