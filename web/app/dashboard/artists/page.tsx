@@ -3,9 +3,7 @@
 import { useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useArtists } from '@/hooks/useArtists'
-import { useHistoryTopArtists } from '@/hooks/useHistoryData'
 import { ArtistGrid } from '@/components/artists/ArtistGrid'
-import { HistoryArtistCarousel } from '@/components/artists/HistoryArtistCarousel'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { Button } from '@/components/ui/Button'
 import { api } from '@/lib/api'
@@ -29,8 +27,6 @@ export default function ArtistsPage() {
   const searchParams = useSearchParams()
   const range = (searchParams.get('range') ?? 'short_term') as TimeRange
   const { artists, isLoading, error, mutate } = useArtists(range)
-  const { artists: allTimeArtists } = useArtists('long_term')
-  const { data: historyTopArtists } = useHistoryTopArtists(undefined, 50)
   const [isSyncing, setIsSyncing] = useState(false)
 
   async function handleSync() {
@@ -44,7 +40,6 @@ export default function ArtistsPage() {
   }
 
   const rangeLabel = range === 'short_term' ? 'past 4 weeks' : range === 'medium_term' ? 'past 6 months' : 'all time'
-  const imageSources = [...(artists ?? []), ...(allTimeArtists ?? [])]
 
   return (
     <div>
@@ -78,12 +73,7 @@ export default function ArtistsPage() {
 
       {isLoading && !artists && <GridSkeleton />}
 
-      <div className="space-y-12">
-        {artists && <ArtistGrid artists={artists} />}
-        {historyTopArtists && historyTopArtists.length > 0 && (
-          <HistoryArtistCarousel artists={historyTopArtists} imageSources={imageSources} />
-        )}
-      </div>
+      {artists && <ArtistGrid artists={artists} />}
     </div>
   )
 }

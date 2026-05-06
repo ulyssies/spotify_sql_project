@@ -3,9 +3,7 @@
 import { useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useTracks } from '@/hooks/useTracks'
-import { useHistoryTopTracks } from '@/hooks/useHistoryData'
 import { TrackGrid } from '@/components/tracks/TrackGrid'
-import { HistoryTrackCarousel } from '@/components/tracks/HistoryTrackCarousel'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { Button } from '@/components/ui/Button'
 import { api } from '@/lib/api'
@@ -29,7 +27,6 @@ export default function TracksPage() {
   const searchParams = useSearchParams()
   const range = (searchParams.get('range') ?? 'short_term') as TimeRange
   const { tracks, isLoading, error, mutate } = useTracks(range)
-  const { data: historyTopTracks } = useHistoryTopTracks(undefined, 50)
   const [isSyncing, setIsSyncing] = useState(false)
 
   async function handleSync() {
@@ -79,12 +76,7 @@ export default function TracksPage() {
 
       {isLoading && !tracks && <GridSkeleton />}
 
-      <div className="space-y-12">
-        {tracks && <TrackGrid tracks={tracks} />}
-        {historyTopTracks && historyTopTracks.length > 0 && (
-          <HistoryTrackCarousel tracks={historyTopTracks} />
-        )}
-      </div>
+      {tracks && <TrackGrid tracks={tracks} />}
     </div>
   )
 }
