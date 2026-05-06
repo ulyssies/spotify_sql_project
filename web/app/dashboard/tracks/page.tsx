@@ -3,7 +3,9 @@
 import { useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useTracks } from '@/hooks/useTracks'
+import { useGenres } from '@/hooks/useGenres'
 import { TrackGrid } from '@/components/tracks/TrackGrid'
+import { TrackInsightsDashboard } from '@/components/tracks/TrackInsightsDashboard'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { Button } from '@/components/ui/Button'
 import { api } from '@/lib/api'
@@ -27,6 +29,7 @@ export default function TracksPage() {
   const searchParams = useSearchParams()
   const range = (searchParams.get('range') ?? 'short_term') as TimeRange
   const { tracks, isLoading, error, mutate } = useTracks(range)
+  const { genres } = useGenres(range)
   const [isSyncing, setIsSyncing] = useState(false)
 
   async function handleSync() {
@@ -76,7 +79,12 @@ export default function TracksPage() {
 
       {isLoading && !tracks && <GridSkeleton />}
 
-      {tracks && <TrackGrid tracks={tracks} />}
+      {tracks && (
+        <>
+          <TrackGrid tracks={tracks} />
+          <TrackInsightsDashboard tracks={tracks} genres={genres} rangeLabel={rangeLabel} />
+        </>
+      )}
     </div>
   )
 }
