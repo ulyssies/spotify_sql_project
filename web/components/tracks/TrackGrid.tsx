@@ -8,7 +8,7 @@ interface GridCardProps {
 
 function GridCard({ track }: GridCardProps) {
   return (
-    <div className="group min-w-0 rounded-lg border border-white/[0.08] bg-[#121212] p-1.5 transition-colors duration-150 hover:border-white/[0.18] hover:bg-[#181818]">
+    <div className="group flex h-full min-w-0 flex-col rounded-lg border border-white/[0.08] bg-[#121212] p-1.5 transition-colors duration-150 hover:border-white/[0.18] hover:bg-[#181818]">
       <div className="relative aspect-[16/9] w-full overflow-hidden rounded-md bg-white/[0.06]">
         {track.album_art_url ? (
           <Image
@@ -42,10 +42,10 @@ function GridCard({ track }: GridCardProps) {
         </div>
       </div>
 
-      <p className="mt-2 line-clamp-2 text-[12px] font-bold leading-tight text-white">
+      <p className="mt-2 min-h-[30px] line-clamp-2 text-[12px] font-bold leading-tight text-white">
         {track.rank}. {track.track_name}
       </p>
-      <p className="mt-0.5 truncate text-[11px] font-semibold leading-tight text-[#858585]">
+      <p className="mt-0.5 h-[14px] truncate text-[11px] font-semibold leading-tight text-[#858585]">
         {track.artist_name}
       </p>
     </div>
@@ -68,7 +68,7 @@ export function TrackGrid({ tracks }: TrackGridProps) {
   return (
     <HorizontalScroller className="gap-3 sm:gap-4">
       {tracks.map((track) => (
-        <div key={track.id} className="w-[96px] shrink-0 sm:w-[106px]">
+        <div key={track.id} className="h-[132px] w-[96px] shrink-0 sm:h-[140px] sm:w-[106px]">
           <GridCard track={track} />
         </div>
       ))}
