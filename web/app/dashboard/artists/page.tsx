@@ -3,24 +3,20 @@
 import { useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useArtists } from '@/hooks/useArtists'
+import { useHistoryTopArtists } from '@/hooks/useHistoryData'
 import { ArtistGrid } from '@/components/artists/ArtistGrid'
+import { HistoryArtistCarousel } from '@/components/artists/HistoryArtistCarousel'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { Button } from '@/components/ui/Button'
 import { api } from '@/lib/api'
 import type { TimeRange } from '@/lib/types'
 
-const RANGE_LABELS: Record<TimeRange, string> = {
-  short_term: 'Last 4 weeks',
-  medium_term: 'Last 6 months',
-  long_term: 'All time',
-}
-
 function GridSkeleton() {
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+    <div className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-7">
       {Array.from({ length: 12 }).map((_, i) => (
         <div key={i} className="flex flex-col items-center space-y-2">
-          <Skeleton className="aspect-square w-full rounded-full" />
+          <Skeleton className="aspect-square w-full max-w-[190px] rounded-full" />
           <Skeleton className="h-3.5 w-3/4" />
           <Skeleton className="h-3 w-1/2" />
         </div>
@@ -33,6 +29,8 @@ export default function ArtistsPage() {
   const searchParams = useSearchParams()
   const range = (searchParams.get('range') ?? 'short_term') as TimeRange
   const { artists, isLoading, error, mutate } = useArtists(range)
+  const { artists: allTimeArtists } = useArtists('long_term')
+  const { data: historyTopArtists } = useHistoryTopArtists(undefined, 25)
   const [isSyncing, setIsSyncing] = useState(false)
 
   async function handleSync() {
@@ -45,13 +43,16 @@ export default function ArtistsPage() {
     }
   }
 
+  const rangeLabel = range === 'short_term' ? 'past 4 weeks' : range === 'medium_term' ? 'past 6 months' : 'all time'
+  const imageSources = [...(artists ?? []), ...(allTimeArtists ?? [])]
+
   return (
     <div>
-      <div className="flex items-center justify-between mb-8">
+      <div className="mb-7 flex items-start justify-between gap-4">
         <div>
-          <h1 className="font-syne font-bold text-2xl text-primary">Top Artists</h1>
-          <p className="text-muted text-sm mt-1">
-            Your most-played artists — {RANGE_LABELS[range]}
+          <h1 className="font-syne text-3xl font-bold text-primary">Top artists</h1>
+          <p className="mt-1 text-base font-semibold text-[#8a8a8a]">
+            Your top artists from {rangeLabel}
           </p>
         </div>
         <Button onClick={handleSync} disabled={isSyncing} variant="ghost" size="sm">
@@ -77,7 +78,12 @@ export default function ArtistsPage() {
 
       {isLoading && !artists && <GridSkeleton />}
 
-      {artists && <ArtistGrid artists={artists} />}
+      <div className="space-y-12">
+        {artists && <ArtistGrid artists={artists} />}
+        {historyTopArtists && historyTopArtists.length > 0 && (
+          <HistoryArtistCarousel artists={historyTopArtists} imageSources={imageSources} />
+        )}
+      </div>
     </div>
   )
 }

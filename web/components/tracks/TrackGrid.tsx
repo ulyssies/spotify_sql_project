@@ -8,7 +8,7 @@ interface GridCardProps {
 function GridCard({ track }: GridCardProps) {
   return (
     <div className="group min-w-0 rounded-lg border border-white/[0.08] bg-[#121212] p-2.5 transition-colors duration-150 hover:border-white/[0.18] hover:bg-[#181818]">
-      <div className="relative aspect-square w-full overflow-hidden rounded-md bg-white/[0.06]">
+      <div className="relative aspect-[16/9] w-full overflow-hidden rounded-md bg-white/[0.06]">
         {track.album_art_url ? (
           <Image
             src={track.album_art_url}

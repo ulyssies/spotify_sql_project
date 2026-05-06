@@ -26,7 +26,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               className={
                 isMapPage
                   ? 'h-full min-h-0 min-w-0 w-full flex flex-col'
-                  : 'max-w-4xl mx-auto'
+                  : 'mx-auto w-full max-w-7xl'
               }
             >
               <Suspense fallback={null}>{children}</Suspense>
