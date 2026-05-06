@@ -13,9 +13,9 @@ import type { TimeRange } from '@/lib/types'
 
 function GridSkeleton() {
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-7">
+    <div className="-mx-1 flex gap-3 overflow-hidden px-1 pb-3 sm:gap-4">
       {Array.from({ length: 12 }).map((_, i) => (
-        <div key={i} className="space-y-2 rounded-lg border border-white/[0.06] bg-[#121212] p-2.5">
+        <div key={i} className="w-[190px] shrink-0 space-y-2 rounded-lg border border-white/[0.06] bg-[#121212] p-2.5 sm:w-[210px]">
           <Skeleton className="aspect-[16/9] w-full rounded-md" />
           <Skeleton className="h-3.5 w-3/4" />
           <Skeleton className="h-3 w-1/2" />
@@ -29,7 +29,7 @@ export default function TracksPage() {
   const searchParams = useSearchParams()
   const range = (searchParams.get('range') ?? 'short_term') as TimeRange
   const { tracks, isLoading, error, mutate } = useTracks(range)
-  const { data: historyTopTracks } = useHistoryTopTracks(undefined, 25)
+  const { data: historyTopTracks } = useHistoryTopTracks(undefined, 50)
   const [isSyncing, setIsSyncing] = useState(false)
 
   async function handleSync() {

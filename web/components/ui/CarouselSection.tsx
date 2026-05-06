@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef } from 'react'
+import { useRef, type WheelEvent } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 interface CarouselSectionProps {
@@ -16,6 +16,21 @@ export function CarouselSection({ title, subtitle, children }: CarouselSectionPr
     const el = scrollRef.current
     if (!el) return
     el.scrollBy({ left: direction * el.clientWidth * 0.78, behavior: 'smooth' })
+  }
+
+  function handleWheel(event: WheelEvent<HTMLDivElement>) {
+    const el = scrollRef.current
+    if (!el) return
+
+    const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY
+    if (!delta) return
+
+    const atStart = el.scrollLeft <= 0
+    const atEnd = Math.ceil(el.scrollLeft + el.clientWidth) >= el.scrollWidth
+    if ((delta < 0 && atStart) || (delta > 0 && atEnd)) return
+
+    event.preventDefault()
+    el.scrollLeft += delta
   }
 
   return (
@@ -50,7 +65,8 @@ export function CarouselSection({ title, subtitle, children }: CarouselSectionPr
 
       <div
         ref={scrollRef}
-        className="-mx-1 flex gap-5 overflow-x-auto px-1 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        onWheel={handleWheel}
+        className="-mx-1 flex gap-5 overflow-x-auto overflow-y-hidden px-1 pb-3 overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {children}
       </div>

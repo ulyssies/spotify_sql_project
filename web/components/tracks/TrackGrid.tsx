@@ -1,4 +1,5 @@
 import Image from 'next/image'
+import { HorizontalScroller } from '@/components/ui/HorizontalScroller'
 import type { Track } from '@/lib/types'
 
 interface GridCardProps {
@@ -65,10 +66,12 @@ export function TrackGrid({ tracks }: TrackGridProps) {
   }
 
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-7">
+    <HorizontalScroller className="gap-3 sm:gap-4">
       {tracks.map((track) => (
-        <GridCard key={track.id} track={track} />
+        <div key={track.id} className="w-[190px] shrink-0 sm:w-[210px]">
+          <GridCard track={track} />
+        </div>
       ))}
-    </div>
+    </HorizontalScroller>
   )
 }

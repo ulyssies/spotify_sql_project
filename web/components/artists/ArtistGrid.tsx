@@ -1,4 +1,5 @@
 import { ArtistCard } from './ArtistCard'
+import { HorizontalScroller } from '@/components/ui/HorizontalScroller'
 import type { Artist } from '@/lib/types'
 
 interface ArtistGridProps {
@@ -15,10 +16,12 @@ export function ArtistGrid({ artists }: ArtistGridProps) {
   }
 
   return (
-    <div className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-7">
+    <HorizontalScroller className="gap-5">
       {artists.map((artist) => (
-        <ArtistCard key={artist.id} artist={artist} />
+        <div key={artist.id} className="w-[176px] shrink-0 sm:w-[190px]">
+          <ArtistCard artist={artist} />
+        </div>
       ))}
-    </div>
+    </HorizontalScroller>
   )
 }
