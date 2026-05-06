@@ -29,9 +29,7 @@ async def get_heatmap(
 
 @router.get("/patterns")
 async def get_patterns(user: dict = Depends(get_current_user)):
-    hours = service.get_hour_pattern(user["id"])
-    dow = service.get_dow_pattern(user["id"])
-    return {"hours": hours, "dow": dow}
+    return service.get_patterns(user["id"])
 
 
 @router.get("/top-artists")

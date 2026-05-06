@@ -1,4 +1,5 @@
 import re
+from datetime import datetime
 from typing import Optional
 
 import spotipy
@@ -24,12 +25,86 @@ def get_heatmap(user_id: str, year: Optional[int] = None) -> list:
     return _rpc("history_heatmap", params) or []
 
 
+def _parse_played_at(value) -> Optional[datetime]:
+    if isinstance(value, datetime):
+        return value
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def _streaming_history_datetimes(user_id: str) -> list[datetime]:
+    result = (
+        supabase.table("streaming_history")
+        .select("played_at")
+        .eq("user_id", user_id)
+        .limit(100000)
+        .execute()
+    )
+
+    played_at: list[datetime] = []
+    for row in result.data or []:
+        parsed = _parse_played_at(row.get("played_at"))
+        if parsed:
+            played_at.append(parsed)
+    return played_at
+
+
+def _build_hour_pattern(played_at_values: list[datetime]) -> list:
+    counts = [0] * 24
+    for played_at in played_at_values:
+        counts[played_at.hour] += 1
+
+    return [
+        {"hour": hour, "count": count}
+        for hour, count in enumerate(counts)
+        if count > 0
+    ]
+
+
+def _build_dow_pattern(played_at_values: list[datetime]) -> list:
+    counts = [0] * 7
+    for played_at in played_at_values:
+        dow = (played_at.weekday() + 1) % 7  # Python Monday=0; chart expects Sunday=0.
+        counts[dow] += 1
+
+    return [
+        {"dow": dow, "count": count}
+        for dow, count in enumerate(counts)
+        if count > 0
+    ]
+
+
+def get_patterns(user_id: str) -> dict:
+    hours = _rpc("history_hour_pattern", {"p_user_id": user_id}) or []
+    dow = _rpc("history_dow_pattern", {"p_user_id": user_id}) or []
+    if hours and dow:
+        return {"hours": hours, "dow": dow}
+
+    played_at_values = _streaming_history_datetimes(user_id)
+    return {
+        "hours": hours or _build_hour_pattern(played_at_values),
+        "dow": dow or _build_dow_pattern(played_at_values),
+    }
+
+
 def get_hour_pattern(user_id: str) -> list:
-    return _rpc("history_hour_pattern", {"p_user_id": user_id}) or []
+    rows = _rpc("history_hour_pattern", {"p_user_id": user_id}) or []
+    if rows:
+        return rows
+
+    return _build_hour_pattern(_streaming_history_datetimes(user_id))
 
 
 def get_dow_pattern(user_id: str) -> list:
-    return _rpc("history_dow_pattern", {"p_user_id": user_id}) or []
+    rows = _rpc("history_dow_pattern", {"p_user_id": user_id}) or []
+    if rows:
+        return rows
+
+    return _build_dow_pattern(_streaming_history_datetimes(user_id))
 
 
 def get_top_artists(user_id: str, year: Optional[int] = None, limit: int = 25) -> list:

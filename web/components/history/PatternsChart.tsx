@@ -18,15 +18,27 @@ interface HourProps {
 export function HourPatternChart({ data }: HourProps) {
   const filled: HourPattern[] = Array.from({ length: 24 }, (_, h) => ({
     hour: h,
-    count: data.find((d) => d.hour === h)?.count ?? 0,
+    count: Number(data.find((d) => Number(d.hour) === h)?.count ?? 0),
   }))
   const max = Math.max(...filled.map((d) => d.count), 1)
+  const total = filled.reduce((sum, d) => sum + d.count, 0)
+  const peak = filled.reduce((best, d) => (d.count > best.count ? d : best), filled[0])
 
   return (
     <div className="bg-[#111111] rounded-xl p-5 border border-[#1f1f1f]">
-      <p className="text-[#666] text-xs font-medium uppercase tracking-wider mb-4">
-        Hour of day (UTC)
-      </p>
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[#666] text-xs font-medium uppercase tracking-wider">
+            Hour of day
+          </p>
+          {total > 0 && (
+            <p className="mt-1 text-xs font-semibold text-[#8a8a8a]">
+              Peak around {HOUR_LABELS[peak.hour]}
+            </p>
+          )}
+        </div>
+        <span className="font-mono text-[10px] text-[#555]">{total.toLocaleString()} plays</span>
+      </div>
       <div className="flex items-end gap-[3px] h-24">
         {filled.map((d) => {
           const pct = (d.count / max) * 100
@@ -34,7 +46,7 @@ export function HourPatternChart({ data }: HourProps) {
             <div key={d.hour} className="flex-1 flex flex-col items-center gap-1 group relative">
               <div
                 className="w-full rounded-t-[2px] bg-[#1DB954] opacity-60 group-hover:opacity-100 transition-opacity"
-                style={{ height: `${Math.max(pct, 2)}%` }}
+                style={{ height: `${d.count > 0 ? Math.max(pct, 4) : 0}%` }}
               />
               <span className="text-[8px] text-[#444] group-hover:text-[#888]">
                 {d.hour % 6 === 0 ? HOUR_LABELS[d.hour] : ''}
@@ -57,15 +69,27 @@ interface DowProps {
 export function DowPatternChart({ data }: DowProps) {
   const filled: DowPattern[] = Array.from({ length: 7 }, (_, dow) => ({
     dow,
-    count: data.find((d) => d.dow === dow)?.count ?? 0,
+    count: Number(data.find((d) => Number(d.dow) === dow)?.count ?? 0),
   }))
   const max = Math.max(...filled.map((d) => d.count), 1)
+  const total = filled.reduce((sum, d) => sum + d.count, 0)
+  const peak = filled.reduce((best, d) => (d.count > best.count ? d : best), filled[0])
 
   return (
     <div className="bg-[#111111] rounded-xl p-5 border border-[#1f1f1f]">
-      <p className="text-[#666] text-xs font-medium uppercase tracking-wider mb-4">
-        Day of week
-      </p>
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[#666] text-xs font-medium uppercase tracking-wider">
+            Day of week
+          </p>
+          {total > 0 && (
+            <p className="mt-1 text-xs font-semibold text-[#8a8a8a]">
+              Busiest on {DOW_LABELS[peak.dow]}
+            </p>
+          )}
+        </div>
+        <span className="font-mono text-[10px] text-[#555]">{total.toLocaleString()} plays</span>
+      </div>
       <div className="flex items-end gap-2 h-24">
         {filled.map((d) => {
           const pct = (d.count / max) * 100
@@ -73,7 +97,7 @@ export function DowPatternChart({ data }: DowProps) {
             <div key={d.dow} className="flex-1 flex flex-col items-center gap-1 group relative">
               <div
                 className="w-full rounded-t-[2px] bg-[#818cf8] opacity-60 group-hover:opacity-100 transition-opacity"
-                style={{ height: `${Math.max(pct, 2)}%` }}
+                style={{ height: `${d.count > 0 ? Math.max(pct, 4) : 0}%` }}
               />
               <span className="text-[9px] text-[#555] group-hover:text-[#888]">
                 {DOW_LABELS[d.dow].slice(0, 1)}
