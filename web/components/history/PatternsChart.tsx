@@ -39,15 +39,17 @@ export function HourPatternChart({ data }: HourProps) {
         </div>
         <span className="font-mono text-[10px] text-[#555]">{total.toLocaleString()} plays</span>
       </div>
-      <div className="flex items-end gap-[3px] h-24">
+      <div className="flex h-24 items-end gap-[3px]">
         {filled.map((d) => {
           const pct = (d.count / max) * 100
           return (
-            <div key={d.hour} className="flex-1 flex flex-col items-center gap-1 group relative">
-              <div
-                className="w-full rounded-t-[2px] bg-[#1DB954] opacity-60 group-hover:opacity-100 transition-opacity"
-                style={{ height: `${d.count > 0 ? Math.max(pct, 4) : 0}%` }}
-              />
+            <div key={d.hour} className="group relative flex h-full flex-1 flex-col items-center gap-1">
+              <div className="flex min-h-0 w-full flex-1 items-end">
+                <div
+                  className="w-full rounded-t-[2px] bg-[#1DB954] opacity-70 transition-opacity group-hover:opacity-100"
+                  style={{ height: `${d.count > 0 ? Math.max(pct, 4) : 0}%` }}
+                />
+              </div>
               <span className="text-[8px] text-[#444] group-hover:text-[#888]">
                 {d.hour % 6 === 0 ? HOUR_LABELS[d.hour] : ''}
               </span>
@@ -90,15 +92,17 @@ export function DowPatternChart({ data }: DowProps) {
         </div>
         <span className="font-mono text-[10px] text-[#555]">{total.toLocaleString()} plays</span>
       </div>
-      <div className="flex items-end gap-2 h-24">
+      <div className="flex h-24 items-end gap-2">
         {filled.map((d) => {
           const pct = (d.count / max) * 100
           return (
-            <div key={d.dow} className="flex-1 flex flex-col items-center gap-1 group relative">
-              <div
-                className="w-full rounded-t-[2px] bg-[#818cf8] opacity-60 group-hover:opacity-100 transition-opacity"
-                style={{ height: `${d.count > 0 ? Math.max(pct, 4) : 0}%` }}
-              />
+            <div key={d.dow} className="group relative flex h-full flex-1 flex-col items-center gap-1">
+              <div className="flex min-h-0 w-full flex-1 items-end">
+                <div
+                  className="w-full rounded-t-[2px] bg-[#818cf8] opacity-70 transition-opacity group-hover:opacity-100"
+                  style={{ height: `${d.count > 0 ? Math.max(pct, 4) : 0}%` }}
+                />
+              </div>
               <span className="text-[9px] text-[#555] group-hover:text-[#888]">
                 {DOW_LABELS[d.dow].slice(0, 1)}
               </span>
