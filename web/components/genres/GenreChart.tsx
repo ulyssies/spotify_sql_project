@@ -1,15 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import {
-  Bar,
-  BarChart,
-  Cell,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts'
 import type { Genre } from '@/lib/types'
 
 function getGenreColor(genre: string): string {
@@ -37,35 +28,6 @@ function getGenreColor(genre: string): string {
   return '#6b7280'
 }
 
-function CustomTooltip({
-  active,
-  payload,
-}: {
-  active?: boolean
-  payload?: Array<{ payload: Genre; value: number }>
-}) {
-  if (!active || !payload?.length) return null
-  const entry = payload[0].payload
-
-  return (
-    <div
-      style={{
-        background: '#111111',
-        border: '1px solid #1f1f1f',
-        borderRadius: 8,
-        padding: '10px 14px',
-        maxWidth: 260,
-        fontFamily: 'var(--font-dm-sans)',
-        fontSize: 13,
-      }}
-    >
-      <p style={{ color: '#f5f5f5' }}>
-        {entry.genre} — {entry.percentage}% of your listening
-      </p>
-    </div>
-  )
-}
-
 interface GenreChartProps {
   data: Genre[]
 }
@@ -75,68 +37,65 @@ export function GenreChart({ data }: GenreChartProps) {
 
   const other = data.find((g) => g.other_genres)
   const named = data.filter((g) => !g.other_genres)
+  const topPercentage = Math.max(...named.map((genre) => genre.percentage), 1)
 
   return (
     <div className="w-full">
-      <ResponsiveContainer width="100%" height={Math.max(240, named.length * 48)}>
-        <BarChart
-          data={named}
-          layout="vertical"
-          margin={{ top: 0, right: 56, bottom: 0, left: 0 }}
-        >
-          <XAxis
-            type="number"
-            domain={[0, 'dataMax']}
-            tickFormatter={(v: number) => `${Math.round(v)}%`}
-            tick={{ fill: '#666666', fontSize: 11, fontFamily: 'var(--font-dm-mono)' }}
-            axisLine={false}
-            tickLine={false}
-          />
-          <YAxis
-            type="category"
-            dataKey="genre"
-            width={160}
-            tick={{ fill: '#f5f5f5', fontSize: 12 }}
-            axisLine={false}
-            tickLine={false}
-          />
-          <Tooltip
-            cursor={{ fill: 'rgba(255,255,255,0.02)' }}
-            content={<CustomTooltip />}
-          />
-          <Bar
-            dataKey="percentage"
-            radius={[0, 4, 4, 0]}
-            animationBegin={0}
-            animationDuration={700}
-            label={{
-              position: 'right',
-              formatter: (v: number) => `${v.toFixed(1)}%`,
-              fill: '#666666',
-              fontSize: 11,
-              fontFamily: 'var(--font-dm-mono)',
-            }}
-          >
-            {named.map((entry) => (
-              <Cell
-                key={entry.genre}
-                fill={getGenreColor(entry.genre)}
-              />
-            ))}
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-7">
+        {named.map((entry, index) => {
+          const color = getGenreColor(entry.genre)
+          const intensity = Math.max(0.26, entry.percentage / topPercentage)
+
+          return (
+            <div
+              key={entry.genre}
+              className="group min-w-0 rounded-lg border border-white/[0.08] bg-[#121212] p-2.5 transition-colors duration-150 hover:border-white/[0.18] hover:bg-[#181818]"
+            >
+              <div
+                className="relative aspect-square overflow-hidden rounded-md"
+                style={{
+                  background: `radial-gradient(circle at 30% 24%, ${color}cc 0%, ${color}66 ${28 + intensity * 22}%, #101010 72%)`,
+                }}
+              >
+                <div
+                  className="absolute inset-0 opacity-70"
+                  style={{
+                    background: `linear-gradient(135deg, ${color}${Math.round(35 + intensity * 55).toString(16).padStart(2, '0')} 0%, transparent 45%, rgba(255,255,255,0.08) 100%)`,
+                  }}
+                />
+                <div className="absolute left-2 top-2 rounded bg-black/65 px-1.5 py-0.5 font-mono text-xs leading-none text-white">
+                  {index + 1}
+                </div>
+                <div className="absolute inset-x-3 bottom-3">
+                  <div className="h-1.5 overflow-hidden rounded-full bg-black/45">
+                    <div
+                      className="h-full rounded-full"
+                      style={{ width: `${Math.max(8, (entry.percentage / topPercentage) * 100)}%`, backgroundColor: color }}
+                    />
+                  </div>
+                </div>
+              </div>
+              <p className="mt-3 line-clamp-2 text-[15px] font-bold leading-tight text-white">
+                {index + 1}. {entry.genre}
+              </p>
+              <p className="mt-1 truncate text-sm font-semibold leading-tight text-[#858585]">
+                {entry.percentage.toFixed(1)}% of listening
+              </p>
+            </div>
+          )
+        })}
+      </div>
 
       {other && (
-        <div className="mt-4 border-t border-border/40 pt-4">
+        <div className="mt-5 rounded-lg border border-white/[0.08] bg-[#121212] p-4">
           <button
             onClick={() => setOtherExpanded((v) => !v)}
-            className="flex items-center justify-between w-full text-left group"
+            className="group flex w-full items-center justify-between text-left"
           >
-            <span className="text-sm text-muted font-mono">
+            <span className="font-mono text-sm text-muted">
               {other.other_genres!.length} more genres — {other.percentage.toFixed(1)}% of listening
             </span>
-            <span className="text-muted text-xs group-hover:text-primary transition-colors">
+            <span className="text-xs text-muted transition-colors group-hover:text-primary">
               {otherExpanded ? '▲ hide' : '▼ show'}
             </span>
           </button>
@@ -146,7 +105,7 @@ export function GenreChart({ data }: GenreChartProps) {
               {other.other_genres!.map((g) => (
                 <span
                   key={g}
-                  className="px-2 py-1 rounded-md text-xs font-mono text-muted bg-white/5 border border-border/40"
+                  className="rounded-md border border-border/40 bg-white/5 px-2 py-1 font-mono text-xs text-muted"
                 >
                   {g}
                 </span>

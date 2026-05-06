@@ -12,18 +12,26 @@ export default function GenresPage() {
   const range = (searchParams.get('range') ?? 'short_term') as TimeRange
   const { genres, isLoading } = useGenres(range)
   const { genres: allTimeGenres } = useGenres('long_term')
+  const rangeLabel = range === 'short_term' ? 'past 4 weeks' : range === 'medium_term' ? 'past 6 months' : 'all time'
 
   return (
     <div>
-      <div className="mb-8">
-        <h1 className="font-syne font-bold text-2xl text-primary">Genre Distribution</h1>
+      <div className="mb-7">
+        <h1 className="font-syne text-3xl font-bold text-primary">Top genres</h1>
+        <p className="mt-1 text-base font-semibold text-[#8a8a8a]">
+          Your top genres from {rangeLabel}
+        </p>
       </div>
 
       {isLoading && (
-        <div className="space-y-3">
-          <Skeleton className="h-64 w-full" />
-          <Skeleton className="h-4 w-48" />
-          <Skeleton className="h-4 w-36" />
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-7">
+          {Array.from({ length: 12 }).map((_, i) => (
+            <div key={i} className="space-y-2 rounded-lg border border-white/[0.06] bg-[#121212] p-2.5">
+              <Skeleton className="aspect-square w-full rounded-md" />
+              <Skeleton className="h-3.5 w-3/4" />
+              <Skeleton className="h-3 w-1/2" />
+            </div>
+          ))}
         </div>
       )}
 

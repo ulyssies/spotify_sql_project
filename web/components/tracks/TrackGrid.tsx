@@ -7,48 +7,44 @@ interface GridCardProps {
 
 function GridCard({ track }: GridCardProps) {
   return (
-    <div className="group cursor-default transition-transform duration-150 hover:scale-[1.02]">
-      {/* Album art */}
-      <div className="relative aspect-square w-full rounded-md overflow-hidden bg-white/[0.06]">
+    <div className="group min-w-0 rounded-lg border border-white/[0.08] bg-[#121212] p-2.5 transition-colors duration-150 hover:border-white/[0.18] hover:bg-[#181818]">
+      <div className="relative aspect-square w-full overflow-hidden rounded-md bg-white/[0.06]">
         {track.album_art_url ? (
           <Image
             src={track.album_art_url}
             alt={track.album_name ?? track.track_name}
             fill
-            sizes="(max-width: 768px) 50vw, (max-width: 1024px) 25vw, (max-width: 1280px) 20vw, 16vw"
-            className="object-cover"
+            sizes="(max-width: 640px) 45vw, (max-width: 1024px) 30vw, (max-width: 1536px) 18vw, 13vw"
+            className="object-cover transition-transform duration-200 group-hover:scale-[1.025]"
           />
         ) : (
-          <div className="w-full h-full bg-white/[0.06] flex items-center justify-center text-2xl text-white/20">
+          <div className="flex h-full w-full items-center justify-center bg-white/[0.06] text-2xl text-white/20">
             ♫
           </div>
         )}
 
-        {/* Rank overlay */}
-        <div className="absolute top-2 left-2 bg-black/60 px-1.5 py-0.5 rounded text-xs font-mono text-white leading-none">
+        <div className="absolute left-2 top-2 rounded bg-black/65 px-1.5 py-0.5 font-mono text-xs leading-none text-white">
           {track.rank}
         </div>
 
-        {/* Hover overlay — bottom third */}
-        <div className="absolute inset-x-0 bottom-0 h-1/3 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex items-center px-2 gap-2 overflow-hidden">
+        <div className="absolute inset-x-0 bottom-0 flex h-1/3 items-center gap-2 overflow-hidden bg-black/70 px-2 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
           {track.play_count !== null && (
-            <span className="text-[10px] font-mono text-white whitespace-nowrap">
+            <span className="whitespace-nowrap font-mono text-[10px] text-white">
               {track.play_count} plays
             </span>
           )}
           {track.popularity !== null && track.popularity >= 70 && (
-            <span className="text-[10px] font-mono text-[#1DB954] whitespace-nowrap">
+            <span className="whitespace-nowrap font-mono text-[10px] text-[#1DB954]">
               {track.popularity}
             </span>
           )}
         </div>
       </div>
 
-      {/* Info */}
-      <p className="text-sm font-medium text-white truncate mt-2 leading-tight">
-        {track.track_name}
+      <p className="mt-3 line-clamp-2 text-[15px] font-bold leading-tight text-white">
+        {track.rank}. {track.track_name}
       </p>
-      <p className="text-xs text-[#666666] truncate leading-tight">
+      <p className="mt-1 truncate text-sm font-semibold leading-tight text-[#858585]">
         {track.artist_name}
       </p>
     </div>
@@ -69,7 +65,7 @@ export function TrackGrid({ tracks }: TrackGridProps) {
   }
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-7">
       {tracks.map((track) => (
         <GridCard key={track.id} track={track} />
       ))}
