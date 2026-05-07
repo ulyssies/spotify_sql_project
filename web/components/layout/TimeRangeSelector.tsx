@@ -22,13 +22,13 @@ export function TimeRangeSelector() {
   }
 
   return (
-    <div className="flex items-center gap-0.5 bg-surface rounded-xl p-1 border border-border">
+    <div className="flex items-center gap-0.5 bg-surface rounded-lg p-0.5 border border-border">
       {RANGES.map(({ value, label }) => (
         <button
           key={value}
           onClick={() => setRange(value)}
           className={[
-            'px-4 py-1.5 rounded-lg text-xs font-medium transition-all duration-150',
+            'px-3 py-1 rounded-md text-[11px] font-medium transition-all duration-150 sm:px-3.5',
             current === value
               ? 'bg-white/[0.08] text-primary'
               : 'text-muted hover:text-primary',

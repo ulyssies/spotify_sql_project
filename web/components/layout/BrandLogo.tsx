@@ -18,8 +18,8 @@ export function BrandLogo({ className = '', showWordmark = true, href }: BrandLo
         alt="SpotYourVibe"
         className={
           showWordmark
-            ? 'h-[3.25rem] w-auto object-contain sm:h-[4.25rem]'
-            : 'h-11 w-11 rounded-full object-cover'
+            ? 'h-[2.45rem] w-auto object-contain sm:h-[3.2rem]'
+            : 'h-8 w-8 rounded-full object-cover sm:h-9 sm:w-9'
         }
       />
     </span>
