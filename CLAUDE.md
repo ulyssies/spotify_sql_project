@@ -1,116 +1,179 @@
 # CLAUDE.md
 
-This file is the source of truth for Claude Code in this project. Read it fully before acting. Agents must read it before scoped work.
+This file is the local handoff guide for Claude Code or another coding agent working in this repo.
 
 ---
 
 ## Project Overview
 
-SpotYourVibe is a Spotify statistics visualizer that connects to a user's Spotify account and displays their top tracks, genre distribution, and personalized song recommendations. It runs an ETL pipeline on each refresh — pulling data from the Spotify Web API, enriching it with genre metadata, and persisting it in a local SQLite database for fast querying.
+SpotYourVibe is a full-stack Spotify music intelligence app. It connects to a user's Spotify account, syncs top tracks and artists, imports Extended Streaming History, enriches music with genre metadata, and visualizes taste as an interactive second-brain graph.
 
-**Live app:** https://spoturvibe.streamlit.app  
-**Status:** Active development
+The current app is no longer the old Streamlit/SQLite version. Treat the active product as:
 
----
+- **Frontend:** Next.js 14 App Router in `web/`
+- **Backend:** FastAPI in `api/`
+- **Database:** Supabase/Postgres
+- **Auth:** Spotify OAuth handled by the API, app sessions via JWT
+- **Music data:** Spotify Web API, imported Extended Streaming History, Spotify artist genres, optional Last.fm fallback tags
 
-## Stack
+Local frontend used during development:
 
-- **Frontend/Backend:** Streamlit (Python) — single-page app, no separate frontend
-- **Language:** Python 3.9
-- **Auth:** Spotify OAuth via Spotipy (`SpotifyOAuth`) — local `.env`, cloud `secrets.toml`
-- **Database:** SQLite (one `.db` file per user, e.g. `spotify_{username}.db`)
-- **Data:** Pandas, Plotly, Matplotlib
-- **API client:** Spotipy 2.26+
-- **Hosting:** Streamlit Cloud — auto-deploys from `main` on GitHub
-- **Package manager:** pip
+```text
+http://localhost:3000
+```
 
----
+Local API:
 
-## Deployment
+```text
+http://127.0.0.1:8000/api/v1
+```
 
-- **App:** Streamlit Cloud at `spoturvibe.streamlit.app` — push to `main` triggers redeploy
-- **Secrets (cloud):** Set in Streamlit Cloud dashboard under Settings → Secrets as `SPOTIPY_CLIENT_ID`, `SPOTIPY_CLIENT_SECRET`, `SPOTIPY_REDIRECT_URI`
-- **Secrets (local):** `.env` file in project root — never commit
-- **Redirect URI (local):** `http://127.0.0.1:8501` — must match Spotify Dashboard exactly
-- **Redirect URI (cloud):** `https://spoturvibe.streamlit.app`
-- **Database:** SQLite files are local only — not committed, not deployed
+Use one browser origin consistently while testing auth. `localhost:3000` and `127.0.0.1:3000` have separate browser storage.
 
 ---
 
 ## Project Structure
 
-```
+```text
 spotify_sql_project/
-├── streamlit_app.py       # Main app — UI, auth, data display
-├── extract_spotify.py     # ETL — pulls and stores top tracks
-├── suggestions.py         # Recommendation logic
-├── genres.py              # Genre utilities
-├── utils.py               # Shared helpers
-├── secrets_handler.py     # Loads credentials from .env or st.secrets
-├── create_database.py     # DB schema setup
-├── check_database.py      # DB inspection utility
-├── requirements.txt       # Python dependencies
-├── .env                   # Local credentials — never commit
-├── .claude/               # Claude Code config
+├── api/                         # FastAPI backend
+│   ├── app/
+│   │   ├── auth/                # Spotify OAuth, refresh handling, JWT sessions
+│   │   ├── users/               # User profile endpoints
+│   │   ├── tracks/              # Top tracks sync/read
+│   │   ├── artists/             # Top artists sync/read
+│   │   ├── genres/              # Genre distribution
+│   │   ├── map/                 # Genre map and artist graph data
+│   │   ├── history/             # Streaming history analytics
+│   │   ├── import_/             # Spotify history import
+│   │   └── recommendations/     # Experimental recommendation surface
+│   ├── migrations/              # Supabase/Postgres migrations
+│   ├── scripts/                 # Import and enrichment scripts
+│   └── requirements.txt
+├── web/                         # Next.js frontend
+│   ├── app/                     # App Router pages
+│   ├── components/              # Dashboard, map, chart, and UI components
+│   ├── hooks/                   # SWR data hooks
+│   └── lib/                     # API client, auth helpers, types
+├── docs/screenshots/            # README preview assets
+├── README.md
 └── CLAUDE.md
 ```
 
 ---
 
-## Conventions
+## Current Product Shape
 
-- **Language:** Python only — snake_case for all variables, functions, and files
-- **Commits:** Conventional commits (`feat:`, `fix:`, `chore:`, `docs:`)
-- **Branches:** `feature/`, `fix/`, `chore/` prefixes
-- **Error handling:** Never swallow errors silently. Surface them via `st.error()` with context.
-- **Comments:** Explain *why*, not *what*. No debug comments in commits.
-- **Secrets:** All credentials via `secrets_handler.py` — never hardcode in any other file
-- **Database:** One SQLite file per user (`spotify_{username}.db`) — never a shared DB
-- **Tests:** None currently. Manual testing via Streamlit UI.
+Core surfaces:
 
----
+- Landing page with branded SpotYourVibe hero and taste-graph visual.
+- Dashboard shell with bottom nav, profile menu, Spotify logo/wordmark, and time-range selector.
+- Top Tracks page with horizontal ranked cards and a track insights dashboard.
+- Top Artists page with horizontal ranked artist cards and an artist insights dashboard.
+- Music Map page with parent genre, subgenre, artist, and central profile nodes.
+- Listening History page with all-time/year stats, yearly/monthly charts, heatmap, patterns, top artists, and top tracks.
+- Genres, Import Data, and experimental Recommendations pages.
 
-## Design System
+Important UX direction:
 
-This is a Streamlit app. UI is controlled via:
-- `st.markdown(..., unsafe_allow_html=True)` for custom HTML/CSS
-- Plotly (`go.Figure`) for charts — use `rgb(30, 215, 96)` (Spotify green) as the primary chart color
-- Streamlit native components where possible
-
-**Color palette:**
-- Primary: `#1DB954` (Spotify green)
-- Background: dark (`rgba(0,0,0,0.6)` overlays)
-- Text: white on dark backgrounds, gray for secondary info
-- Borders/radius: `border-radius: 30px` for buttons, `1rem` for cards
-
-The frontend-design skill (`.claude/skills/frontend-design/SKILL.md`) enforces these standards.
+- Dark, polished, Spotify-adjacent but not Spotify-clone.
+- Information-dense dashboard surfaces.
+- Music Map should feel like a dense neural constellation with organic structure, not a rigid pie chart.
+- Cards should be practical and data-forward; avoid marketing blocks inside the authenticated app.
 
 ---
 
-## Do Not Touch
+## Recent Session Changes
 
-- `.env` — never read contents aloud, never modify, never commit
-- `spotify_*.db` — generated at runtime, never commit
-- `.cache` — Spotipy token cache, never commit
-- `requirements.txt` — only update when explicitly adding a new dependency
+### History and Import
+
+- `/history/stats` now accepts an optional `year`.
+- Added `/history/monthly?year=...`.
+- Added `/history/artist-yearly?artist_names=...`.
+- History stat cards now update for selected years and fall back to yearly summary data instead of blank cards.
+- Year mode uses the new month chart; all-time mode keeps the yearly chart.
+- Hour-of-day and day-of-week chart bars now share a consistent baseline.
+- Skip rate shows `No data` when imported history does not contain skipped metadata.
+- Import handling now preserves and backfills `reason_start`, `reason_end`, `skipped`, and `shuffle` metadata.
+- Import flow no longer filters out short plays or skipped rows before upload.
+- Upserts replaced duplicate-ignore behavior so re-imports can enrich existing rows.
+
+### Top Tracks
+
+- Top tracks use compact rectangular cards in a horizontal row.
+- Track insight dashboard summarizes listening time, top genre, replay concentration, artist spread, listening weight, genre mix, artist share, first-heard timing, popularity shape, and data coverage.
+
+### Top Artists
+
+- Top artists use a horizontal single-row carousel.
+- Added an artist insights dashboard under the row.
+- Artist insights include listening weight, artist leader, main genre lane, top-five pull, top artists over time, current listening weight, genre lanes, all-time overlap, audience shape, and data coverage.
+
+### Music Map
+
+- The map uses layered parent genre, subgenre, artist, and central profile nodes.
+- Parent/subgenre/artist nodes have stronger listening-weight encoding through size, opacity, stroke, and hue.
+- Artist borders are intentionally organic/blob-like instead of a hard circle.
+- Hover and click states highlight local relationships; clicked nodes pin the selection and open a detail drawer.
+- Artist top-song drawer rows use deduplicated all-time history and Spotify artwork enrichment.
+- Genre/subgenre top-song rows use the same artwork enrichment path.
+
+### Recommendations Caveat
+
+Spotify deprecated the native recommendations endpoint and related-artist endpoint for many apps after November 2024. The existing recommendations route should be treated as experimental and likely needs to be rebuilt around local graph/history scoring rather than relying on deprecated Spotify endpoints.
 
 ---
 
-## Current Priorities
+## Commands
 
-1. Fix local OAuth flow — ensure login works end-to-end with `http://127.0.0.1:8501`
-2. Verify data loads correctly after login and displays top tracks, genres, and recommendations
-3. Ensure cloud deployment at `spoturvibe.streamlit.app` stays in sync with `main`
+Frontend checks:
+
+```bash
+cd web
+npx tsc --noEmit
+```
+
+Frontend dev server:
+
+```bash
+cd web
+npm run dev
+```
+
+API dev server:
+
+```bash
+cd api
+python3 -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+```
+
+Python syntax check example:
+
+```bash
+PYTHONPYCACHEPREFIX=/private/tmp/pycache python3 -m py_compile api/app/history/service.py api/app/history/router.py
+```
+
+Whitespace check:
+
+```bash
+git diff --check
+```
 
 ---
 
-## Known Issues
+## Security Rules
 
-- `query_params["code"][0]` in `streamlit_app.py:40` — in Streamlit 1.32+, `st.query_params` values are strings not lists; `[0]` returns the first character, not the full code. This may silently break the OAuth callback.
-- `.cache` file exists in project root from an old Spotipy session — may interfere if `cache_path` handling changes
+- Do not read, print, modify, or commit `.env`, `.env.local`, `.cache`, Supabase keys, Spotify secrets, or local database files.
+- Do not commit `.claude/`, `.agents/`, `AGENTS.md`, or `CODEX.md`; they are local/agent handoff files and are ignored.
+- Supabase service role keys belong only in the backend environment.
+- Spotify refresh tokens are server-side data and should never be exposed in frontend code.
+- Keep screenshots/demo assets free of sensitive information before public release.
 
 ---
 
-## Session Notes
+## Useful Notes
 
-Detailed session history lives in `.claude/session-notes.md`. The context-manager agent maintains it. Run `/session-end` at the end of every work session.
+- The tracked README is the public project overview.
+- This file is the Claude-specific local handoff.
+- `CODEX.md` and `AGENTS.md` may exist locally but are ignored by git.
+- If browser auth appears broken, confirm the frontend origin and API redirect origin match the environment values.

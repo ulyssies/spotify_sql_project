@@ -54,11 +54,11 @@ Core product goals:
 | **Pinned Node Details** | Click nodes to inspect listening time, yearly history, leaderboards, subgenre mix, and top songs. |
 | **Artist Top Songs** | Aggregates all-time listening history for selected artists and merges duplicate Spotify versions of the same song. |
 | **Album Artwork** | Enriches top-song rows with stored Spotify artwork or live Spotify lookups. |
-| **Top Tracks & Artists** | Dashboard views for ranked tracks and artists across Spotify time ranges. |
-| **Listening History Import** | Import Spotify Extended Streaming History JSON exports for deeper all-time stats. |
+| **Top Tracks & Artists** | Horizontal ranked rows plus insight dashboards for listening weight, genre lanes, concentration, all-time overlap, and artist momentum. |
+| **Listening History Import** | Import Spotify Extended Streaming History JSON exports, including optional skip/shuffle/reason metadata, for deeper all-time stats. |
 | **Genre Enrichment** | Combines Spotify artist genres with Last.fm fallback tags, then cleans noisy tags. |
-| **Recommendations** | Personalized recommendations based on saved taste data and Spotify seeds. |
-| **History Analytics** | Lifetime stats, yearly trends, heatmaps, and listening patterns. |
+| **Recommendations** | Experimental recommendation surface. Spotify deprecated the native recommendation and related-artist endpoints for many apps, so the next version should use the local taste graph and history data instead. |
+| **History Analytics** | Lifetime and year-scoped stats, monthly/yearly trends, heatmaps, hour/day patterns, and top artist/track leaderboards. |
 
 ## Architecture
 
@@ -253,8 +253,8 @@ All API routes are prefixed with `/api/v1`.
 | Tracks | `GET /tracks`, `POST /tracks/sync` |
 | Artists | `GET /artists`, `POST /artists/sync` |
 | Genres | `GET /genres` |
-| Map | `GET /map/genre`, `GET /map/artists` |
-| History | `GET /history/stats`, `GET /history/yearly`, `GET /history/top-tracks`, `GET /history/artist-top-tracks` |
+| Map | `GET /map/genres`, `GET /map/artists` |
+| History | `GET /history/stats`, `GET /history/yearly`, `GET /history/monthly`, `GET /history/heatmap`, `GET /history/patterns`, `GET /history/top-artists`, `GET /history/top-tracks`, `GET /history/artist-top-tracks`, `GET /history/artist-yearly` |
 | Recommendations | `GET /recommendations` |
 | Import | Streaming history import/status endpoints |
 
@@ -275,7 +275,7 @@ Authorization: Bearer <jwt>
 
 - Add a public demo dataset mode.
 - Build a true per-genre/per-year history endpoint instead of weighted global history approximations.
-- Add stronger recommendation explanations from graph neighborhoods.
+- Replace deprecated Spotify recommendation/related-artist calls with a graph-native recommender built from listening history, genre proximity, and unseen-track filtering.
 - Improve mobile interaction for dense graph exploration.
 - Add tests around history aggregation, duplicate track normalization, and map filtering.
 
