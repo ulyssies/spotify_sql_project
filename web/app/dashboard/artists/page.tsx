@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useArtists } from '@/hooks/useArtists'
 import { ArtistGrid } from '@/components/artists/ArtistGrid'
+import { ArtistInsightsDashboard } from '@/components/artists/ArtistInsightsDashboard'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { Button } from '@/components/ui/Button'
 import { api } from '@/lib/api'
@@ -73,7 +74,12 @@ export default function ArtistsPage() {
 
       {isLoading && !artists && <GridSkeleton />}
 
-      {artists && <ArtistGrid artists={artists} />}
+      {artists && (
+        <>
+          <ArtistGrid artists={artists} />
+          <ArtistInsightsDashboard artists={artists} rangeLabel={rangeLabel} />
+        </>
+      )}
     </div>
   )
 }
