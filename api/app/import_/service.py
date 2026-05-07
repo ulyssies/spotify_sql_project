@@ -18,14 +18,16 @@ def upsert_streaming_history(user_id: str, items: List[StreamingHistoryItemIn]) 
             "reason_start":     item.reason_start,
             "reason_end":       item.reason_end,
             "skipped":          item.skipped,
+            "shuffle":          item.shuffle,
         }
         for item in items
     ]
 
-    # upsert — on conflict (user_id, played_at, spotify_track_uri) do nothing
+    # Upsert updates existing rows too, which lets a re-import backfill metadata
+    # like skipped/shuffle after the base listening history already exists.
     result = (
         supabase.table("streaming_history")
-        .upsert(rows, on_conflict="user_id,played_at,spotify_track_uri", ignore_duplicates=True)
+        .upsert(rows, on_conflict="user_id,played_at,spotify_track_uri")
         .execute()
     )
 

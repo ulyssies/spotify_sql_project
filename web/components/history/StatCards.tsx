@@ -4,6 +4,7 @@ import type { HistoryStats } from '@/lib/types'
 
 interface Props {
   stats: HistoryStats
+  year?: number
 }
 
 function fmt(n: number, decimals = 0): string {
@@ -25,13 +26,15 @@ function Card({ label, value, sub }: { label: string; value: string; sub?: strin
   )
 }
 
-export function StatCards({ stats }: Props) {
-  const skipPct = stats.total_plays > 0
-    ? ((stats.skipped_count / stats.total_plays) * 100).toFixed(1)
-    : '0'
-  const shufflePct = stats.total_plays > 0
-    ? ((stats.shuffle_count / stats.total_plays) * 100).toFixed(1)
-    : '0'
+export function StatCards({ stats, year }: Props) {
+  const skipDataCount = stats.skip_data_count ?? null
+  const shuffleDataCount = stats.shuffle_data_count ?? null
+  const skipPct = skipDataCount && skipDataCount > 0
+    ? ((stats.skipped_count / skipDataCount) * 100).toFixed(1)
+    : null
+  const shufflePct = shuffleDataCount && shuffleDataCount > 0
+    ? ((stats.shuffle_count / shuffleDataCount) * 100).toFixed(1)
+    : null
 
   const startYear = stats.first_played_at ? new Date(stats.first_played_at).getFullYear() : null
   const endYear = stats.last_played_at ? new Date(stats.last_played_at).getFullYear() : null
@@ -44,7 +47,7 @@ export function StatCards({ stats }: Props) {
       <Card
         label="Listening time"
         value={`${msToHours(stats.total_ms)}h`}
-        sub={`${Math.round(stats.total_ms / 1000 / 3600 / 24)} days total${yearSpan ? ` · ${yearSpan}` : ''}`}
+        sub={`${Math.round(stats.total_ms / 1000 / 3600 / 24)} days${year ? ` in ${year}` : yearSpan ? ` total · ${yearSpan}` : ' total'}`}
       />
       <Card
         label="Total plays"
@@ -58,8 +61,8 @@ export function StatCards({ stats }: Props) {
       />
       <Card
         label="Skip rate"
-        value={`${skipPct}%`}
-        sub={`${shufflePct}% on shuffle`}
+        value={skipPct ? `${skipPct}%` : 'No data'}
+        sub={skipPct ? (shufflePct ? `${shufflePct}% on shuffle` : `${fmt(skipDataCount ?? 0)} plays with skip metadata`) : 'Skipped metadata was not imported'}
       />
     </div>
   )

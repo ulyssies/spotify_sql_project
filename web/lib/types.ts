@@ -38,6 +38,7 @@ export interface StreamingHistoryItem {
   reason_start?: string
   reason_end?: string
   skipped?: boolean | null
+  shuffle?: boolean | null
 }
 
 export interface ImportResult {
@@ -127,6 +128,8 @@ export interface HistoryStats {
   unique_tracks: number
   skipped_count: number
   shuffle_count: number
+  skip_data_count?: number | null
+  shuffle_data_count?: number | null
   meaningful_plays: number
   first_played_at: string | null
   last_played_at: string | null
@@ -134,6 +137,14 @@ export interface HistoryStats {
 
 export interface YearStat {
   year: number
+  plays: number
+  total_ms: number
+  unique_artists: number
+  unique_tracks: number
+}
+
+export interface MonthStat {
+  month: number
   plays: number
   total_ms: number
   unique_artists: number
@@ -160,6 +171,13 @@ export interface TopArtist {
   plays: number
   total_ms: number
   unique_tracks: number
+}
+
+export interface ArtistYearStat {
+  artist_name: string
+  year: number
+  plays: number
+  total_ms: number
 }
 
 export interface TopTrack {

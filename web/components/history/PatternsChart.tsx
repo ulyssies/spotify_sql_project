@@ -43,14 +43,14 @@ export function HourPatternChart({ data }: HourProps) {
         {filled.map((d) => {
           const pct = (d.count / max) * 100
           return (
-            <div key={d.hour} className="group relative flex h-full flex-1 flex-col items-center gap-1">
-              <div className="flex min-h-0 w-full flex-1 items-end">
+            <div key={d.hour} className="group relative flex h-full flex-1 flex-col items-center">
+              <div className="flex h-20 w-full items-end">
                 <div
                   className="w-full rounded-t-[2px] bg-[#1DB954] opacity-70 transition-opacity group-hover:opacity-100"
                   style={{ height: `${d.count > 0 ? Math.max(pct, 4) : 0}%` }}
                 />
               </div>
-              <span className="text-[8px] text-[#444] group-hover:text-[#888]">
+              <span className="mt-1 h-3 text-[8px] text-[#444] group-hover:text-[#888]">
                 {d.hour % 6 === 0 ? HOUR_LABELS[d.hour] : ''}
               </span>
               <div className="absolute -top-6 left-1/2 -translate-x-1/2 hidden group-hover:block bg-[#1f1f1f] text-white text-[9px] px-1.5 py-0.5 rounded whitespace-nowrap z-10">
@@ -96,14 +96,14 @@ export function DowPatternChart({ data }: DowProps) {
         {filled.map((d) => {
           const pct = (d.count / max) * 100
           return (
-            <div key={d.dow} className="group relative flex h-full flex-1 flex-col items-center gap-1">
-              <div className="flex min-h-0 w-full flex-1 items-end">
+            <div key={d.dow} className="group relative flex h-full flex-1 flex-col items-center">
+              <div className="flex h-20 w-full items-end">
                 <div
                   className="w-full rounded-t-[2px] bg-[#818cf8] opacity-70 transition-opacity group-hover:opacity-100"
                   style={{ height: `${d.count > 0 ? Math.max(pct, 4) : 0}%` }}
                 />
               </div>
-              <span className="text-[9px] text-[#555] group-hover:text-[#888]">
+              <span className="mt-1 h-3 text-[9px] text-[#555] group-hover:text-[#888]">
                 {DOW_LABELS[d.dow].slice(0, 1)}
               </span>
               <div className="absolute -top-6 left-1/2 -translate-x-1/2 hidden group-hover:block bg-[#1f1f1f] text-white text-[9px] px-1.5 py-0.5 rounded whitespace-nowrap z-10">

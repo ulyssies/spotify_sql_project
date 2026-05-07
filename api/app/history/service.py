@@ -6,18 +6,150 @@ import spotipy
 
 from app.database import supabase
 
+HISTORY_FETCH_PAGE_SIZE = 1000
+
 
 def _rpc(fn: str, params: dict):
     result = supabase.rpc(fn, params).execute()
     return result.data
 
 
-def get_stats(user_id: str) -> dict:
-    return _rpc("history_stats", {"p_user_id": user_id}) or {}
+def _year_bounds(year: int) -> tuple[str, str]:
+    return (
+        f"{year:04d}-01-01T00:00:00+00:00",
+        f"{year + 1:04d}-01-01T00:00:00+00:00",
+    )
+
+
+def _streaming_history_rows(user_id: str, select: str, year: Optional[int] = None) -> list[dict]:
+    rows: list[dict] = []
+    offset = 0
+    start, end = _year_bounds(year) if year is not None else (None, None)
+
+    while True:
+        query = (
+            supabase.table("streaming_history")
+            .select(select)
+            .eq("user_id", user_id)
+            .order("played_at")
+        )
+        if start and end:
+            query = query.gte("played_at", start).lt("played_at", end)
+
+        result = query.range(offset, offset + HISTORY_FETCH_PAGE_SIZE - 1).execute()
+        batch = result.data or []
+        rows.extend(batch)
+
+        if len(batch) < HISTORY_FETCH_PAGE_SIZE:
+            break
+        offset += HISTORY_FETCH_PAGE_SIZE
+
+    return rows
+
+
+def _build_stats(rows: list[dict]) -> dict:
+    music_rows = [row for row in rows if row.get("track_name")]
+    artist_names = {
+        row.get("artist_name")
+        for row in music_rows
+        if row.get("artist_name")
+    }
+    track_ids = {
+        row.get("spotify_track_uri") or f"{row.get('artist_name')}:{row.get('track_name')}"
+        for row in music_rows
+        if row.get("spotify_track_uri") or row.get("track_name")
+    }
+    played_at_values = [
+        row.get("played_at")
+        for row in music_rows
+        if row.get("played_at")
+    ]
+
+    skip_data_count = sum(1 for row in music_rows if row.get("skipped") is not None)
+    shuffle_data_count = sum(1 for row in music_rows if row.get("shuffle") is not None)
+
+    return {
+        "total_plays": len(music_rows),
+        "total_ms": sum(row.get("ms_played") or 0 for row in music_rows),
+        "unique_artists": len(artist_names),
+        "unique_tracks": len(track_ids),
+        "skipped_count": sum(1 for row in music_rows if row.get("skipped") is True),
+        "shuffle_count": sum(1 for row in music_rows if row.get("shuffle") is True),
+        "skip_data_count": skip_data_count,
+        "shuffle_data_count": shuffle_data_count,
+        "meaningful_plays": sum(1 for row in music_rows if (row.get("ms_played") or 0) >= 30000),
+        "first_played_at": min(played_at_values) if played_at_values else None,
+        "last_played_at": max(played_at_values) if played_at_values else None,
+    }
+
+
+def get_stats(user_id: str, year: Optional[int] = None) -> dict:
+    if year is None:
+        stats = _rpc("history_stats", {"p_user_id": user_id}) or {}
+        stats.setdefault("skip_data_count", None)
+        stats.setdefault("shuffle_data_count", None)
+        return stats
+
+    base_select = "played_at, ms_played, track_name, artist_name, spotify_track_uri"
+    try:
+        rows = _streaming_history_rows(
+            user_id,
+            f"{base_select}, skipped, shuffle",
+            year=year,
+        )
+    except Exception as exc:
+        print(f"Could not load optional skip/shuffle metadata for {year}: {exc}")
+        rows = _streaming_history_rows(user_id, base_select, year=year)
+    return _build_stats(rows)
 
 
 def get_yearly(user_id: str) -> list:
     return _rpc("history_yearly", {"p_user_id": user_id}) or []
+
+
+def get_monthly(user_id: str, year: int) -> list:
+    rows = _streaming_history_rows(
+        user_id,
+        "played_at, ms_played, track_name, artist_name, spotify_track_uri",
+        year=year,
+    )
+    buckets = {
+        month: {
+            "month": month,
+            "plays": 0,
+            "total_ms": 0,
+            "_artists": set(),
+            "_tracks": set(),
+        }
+        for month in range(1, 13)
+    }
+
+    for row in rows:
+        if not row.get("track_name"):
+            continue
+
+        parsed = _parse_played_at(row.get("played_at"))
+        if not parsed:
+            continue
+
+        bucket = buckets[parsed.month]
+        bucket["plays"] += 1
+        bucket["total_ms"] += row.get("ms_played") or 0
+        if row.get("artist_name"):
+            bucket["_artists"].add(row["artist_name"])
+        if row.get("spotify_track_uri") or row.get("track_name"):
+            bucket["_tracks"].add(row.get("spotify_track_uri") or row["track_name"])
+
+    return [
+        {
+            "month": bucket["month"],
+            "plays": bucket["plays"],
+            "total_ms": bucket["total_ms"],
+            "unique_artists": len(bucket["_artists"]),
+            "unique_tracks": len(bucket["_tracks"]),
+        }
+        for bucket in buckets.values()
+    ]
 
 
 def get_heatmap(user_id: str, year: Optional[int] = None) -> list:
@@ -256,3 +388,89 @@ def get_artist_top_tracks(user_id: str, artist_name: str, limit: int = 25, sp: O
     _attach_album_art_from_spotify(sorted_tracks, sp)
 
     return sorted_tracks
+
+
+def get_artist_yearly(user_id: str, artist_names: Optional[list[str]] = None, limit: int = 8) -> list:
+    selected_names = []
+    seen_names: set[str] = set()
+    for name in artist_names or []:
+        clean_name = name.strip()
+        key = clean_name.lower()
+        if clean_name and key not in seen_names:
+            selected_names.append(clean_name)
+            seen_names.add(key)
+
+    if not selected_names:
+        selected_names = [
+            row["artist_name"]
+            for row in get_top_artists(user_id, limit=limit)
+            if row.get("artist_name")
+        ]
+
+    if selected_names:
+        selected_names = selected_names[:limit]
+
+    rows: list[dict] = []
+    offset = 0
+    while True:
+        query = (
+            supabase.table("streaming_history")
+            .select("played_at, ms_played, track_name, artist_name")
+            .eq("user_id", user_id)
+            .order("played_at")
+        )
+        if selected_names:
+            query = query.in_("artist_name", selected_names)
+
+        result = query.range(offset, offset + HISTORY_FETCH_PAGE_SIZE - 1).execute()
+        batch = result.data or []
+        rows.extend(batch)
+
+        if len(batch) < HISTORY_FETCH_PAGE_SIZE:
+            break
+        offset += HISTORY_FETCH_PAGE_SIZE
+
+    yearly: dict[tuple[str, int], dict] = {}
+    totals: dict[str, int] = {}
+    display_names: dict[str, str] = {}
+
+    for row in rows:
+        artist_name = row.get("artist_name")
+        if not artist_name or not row.get("track_name"):
+            continue
+
+        parsed = _parse_played_at(row.get("played_at"))
+        if not parsed:
+            continue
+
+        artist_key = artist_name.lower()
+        display_names.setdefault(artist_key, artist_name)
+        ms_played = row.get("ms_played") or 0
+        totals[artist_key] = totals.get(artist_key, 0) + ms_played
+
+        key = (artist_key, parsed.year)
+        if key not in yearly:
+            yearly[key] = {
+                "artist_name": artist_name,
+                "year": parsed.year,
+                "plays": 0,
+                "total_ms": 0,
+            }
+        yearly[key]["plays"] += 1
+        yearly[key]["total_ms"] += ms_played
+
+    allowed = {
+        artist_key
+        for artist_key, _total_ms in sorted(totals.items(), key=lambda item: item[1], reverse=True)[:limit]
+    }
+    if selected_names:
+        allowed.update(name.lower() for name in selected_names)
+
+    return sorted(
+        [
+            {**row, "artist_name": display_names.get(row["artist_name"].lower(), row["artist_name"])}
+            for (artist_key, _year), row in yearly.items()
+            if artist_key in allowed
+        ],
+        key=lambda row: (row["year"], row["artist_name"]),
+    )

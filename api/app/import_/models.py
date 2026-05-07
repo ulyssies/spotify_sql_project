@@ -14,6 +14,7 @@ class StreamingHistoryItemIn(BaseModel):
     reason_start: Optional[str] = None
     reason_end: Optional[str] = None
     skipped: Optional[bool] = None
+    shuffle: Optional[bool] = None
 
 
 class ImportResult(BaseModel):

@@ -31,6 +31,8 @@ RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER AS $$
     'unique_tracks',    COUNT(DISTINCT spotify_track_uri),
     'skipped_count',    COUNT(*) FILTER (WHERE skipped = true),
     'shuffle_count',    COUNT(*) FILTER (WHERE shuffle = true),
+    'skip_data_count',  COUNT(*) FILTER (WHERE skipped IS NOT NULL),
+    'shuffle_data_count', COUNT(*) FILTER (WHERE shuffle IS NOT NULL),
     'meaningful_plays', COUNT(*) FILTER (WHERE ms_played >= 30000),
     'first_played_at',  MIN(played_at),
     'last_played_at',   MAX(played_at)
@@ -55,6 +57,29 @@ RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER AS $$
     WHERE user_id = p_user_id AND track_name IS NOT NULL
     GROUP BY 1
     ORDER BY 1
+  ) t;
+$$;
+
+-- ── Per-month breakdown for a selected year ─────────────────────────────────
+CREATE OR REPLACE FUNCTION history_monthly(p_user_id text, p_year int)
+RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER AS $$
+  SELECT COALESCE(jsonb_agg(row ORDER BY (row->>'month')::int), '[]'::jsonb)
+  FROM (
+    SELECT jsonb_build_object(
+      'month',          months.month,
+      'plays',          COUNT(sh.*),
+      'total_ms',       COALESCE(SUM(sh.ms_played), 0),
+      'unique_artists', COUNT(DISTINCT sh.artist_name),
+      'unique_tracks',  COUNT(DISTINCT sh.spotify_track_uri)
+    ) AS row
+    FROM generate_series(1, 12) AS months(month)
+    LEFT JOIN streaming_history sh
+      ON sh.user_id = p_user_id
+      AND sh.track_name IS NOT NULL
+      AND EXTRACT(YEAR FROM sh.played_at) = p_year
+      AND EXTRACT(MONTH FROM sh.played_at) = months.month
+    GROUP BY months.month
+    ORDER BY months.month
   ) t;
 $$;
 

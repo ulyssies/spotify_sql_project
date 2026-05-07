@@ -169,12 +169,9 @@ async function parseFiles(files: File[]): Promise<{ items: StreamingHistoryItem[
       if (isExtendedFormat(raw)) {
         // Extended streaming history (StreamingHistory_music_*.json)
         if (!raw.spotify_track_uri) continue   // local files / podcasts
-        if (raw.ms_played < 30000) continue    // under 30s
-        if (raw.skipped === true) continue
         all.push(raw)
       } else if (isShortFormat(raw)) {
         // Short export (StreamingHistory*.json)
-        if (raw.msPlayed < 30000) continue     // under 30s
         all.push(normalizeShortItem(raw))
       }
       // Unknown shape — skip silently

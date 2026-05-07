@@ -1,5 +1,5 @@
 import { clearToken, getToken } from '@/lib/auth'
-import type { Artist, ArtistMapData, Genre, GenreMapData, HistoryPatterns, HistoryStats, HeatmapDay, ImportResult, ImportStatus, Recommendation, StreamingHistoryItem, SyncResult, TimeRange, TopArtist, TopTrack, Track, User, YearStat } from '@/lib/types'
+import type { Artist, ArtistMapData, ArtistYearStat, Genre, GenreMapData, HistoryPatterns, HistoryStats, HeatmapDay, ImportResult, ImportStatus, MonthStat, Recommendation, StreamingHistoryItem, SyncResult, TimeRange, TopArtist, TopTrack, Track, User, YearStat } from '@/lib/types'
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api/v1'
 
@@ -66,11 +66,14 @@ export const api = {
   fetchArtistMap: (range: TimeRange) =>
     request<ArtistMapData>(`/map/artists?range=${range}`),
 
-  getHistoryStats: () =>
-    request<HistoryStats>('/history/stats'),
+  getHistoryStats: (year?: number) =>
+    request<HistoryStats>(`/history/stats${year ? `?year=${year}` : ''}`),
 
   getHistoryYearly: () =>
     request<YearStat[]>('/history/yearly'),
+
+  getHistoryMonthly: (year: number) =>
+    request<MonthStat[]>(`/history/monthly?year=${year}`),
 
   getHistoryHeatmap: (year?: number) =>
     request<HeatmapDay[]>(`/history/heatmap${year ? `?year=${year}` : ''}`),
@@ -86,4 +89,10 @@ export const api = {
 
   getHistoryArtistTopTracks: (artistName: string, limit = 25) =>
     request<TopTrack[]>(`/history/artist-top-tracks?artist_name=${encodeURIComponent(artistName)}&limit=${limit}`),
+
+  getHistoryArtistYearly: (artistNames: string[], limit = 8) => {
+    const params = new URLSearchParams({ limit: String(limit) })
+    artistNames.forEach((name) => params.append('artist_names', name))
+    return request<ArtistYearStat[]>(`/history/artist-yearly?${params.toString()}`)
+  },
 }

@@ -67,13 +67,17 @@ def transform(plays: list[dict], user_id: str) -> list[dict]:
             "artist_name":       p["master_metadata_album_artist_name"],
             "album_name":        p.get("master_metadata_album_album_name"),
             "spotify_track_uri": uri,
+            "reason_start":      p.get("reason_start"),
+            "reason_end":        p.get("reason_end"),
+            "skipped":           p.get("skipped"),
+            "shuffle":           p.get("shuffle"),
         })
     return rows
 
 
 def upsert_batches(rows: list[dict]) -> tuple[int, int]:
     total = len(rows)
-    imported = 0
+    processed = 0
     skipped = 0
 
     for i in range(0, total, BATCH_SIZE):
@@ -83,18 +87,17 @@ def upsert_batches(rows: list[dict]) -> tuple[int, int]:
             .upsert(
                 batch,
                 on_conflict="user_id,played_at,spotify_track_uri",
-                ignore_duplicates=True,
             )
             .execute()
         )
         inserted = len(result.data) if result.data else 0
-        imported += inserted
+        processed += inserted
         skipped += len(batch) - inserted
 
         done = min(i + BATCH_SIZE, total)
-        print(f"  {done:,}/{total:,}  (+{inserted} new)")
+        print(f"  {done:,}/{total:,}  ({inserted} rows upserted)")
 
-    return imported, skipped
+    return processed, skipped
 
 
 def main() -> None:
@@ -122,7 +125,7 @@ def main() -> None:
     print("Upserting to Supabase...")
     imported, skipped = upsert_batches(rows)
 
-    print(f"\nDone. {imported:,} new rows inserted, {skipped:,} already existed.")
+    print(f"\nDone. {imported:,} rows upserted, {skipped:,} rows not returned by Supabase.")
 
 
 if __name__ == "__main__":

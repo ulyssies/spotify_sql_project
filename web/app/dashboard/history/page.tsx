@@ -3,13 +3,16 @@
 import { useState } from 'react'
 import { StatCards } from '@/components/history/StatCards'
 import { YearlyChart } from '@/components/history/YearlyChart'
+import { MonthlyChart } from '@/components/history/MonthlyChart'
 import { HeatmapCalendar } from '@/components/history/HeatmapCalendar'
 import { TopArtistsList, TopTracksList } from '@/components/history/TopList'
 import { HourPatternChart, DowPatternChart } from '@/components/history/PatternsChart'
 import { Skeleton } from '@/components/ui/Skeleton'
+import type { HistoryStats, YearStat } from '@/lib/types'
 import {
   useHistoryStats,
   useHistoryYearly,
+  useHistoryMonthly,
   useHistoryHeatmap,
   useHistoryPatterns,
   useHistoryTopArtists,
@@ -17,6 +20,22 @@ import {
 } from '@/hooks/useHistoryData'
 
 const ALL_TIME = 0
+
+function statsFromYear(row: YearStat): HistoryStats {
+  return {
+    total_plays: row.plays,
+    total_ms: row.total_ms,
+    unique_artists: row.unique_artists,
+    unique_tracks: row.unique_tracks,
+    skipped_count: 0,
+    shuffle_count: 0,
+    skip_data_count: 0,
+    shuffle_data_count: 0,
+    meaningful_plays: row.plays,
+    first_played_at: `${row.year}-01-01T00:00:00Z`,
+    last_played_at: `${row.year}-12-31T23:59:59Z`,
+  }
+}
 
 function LoadingSection({ rows = 1 }: { rows?: number }) {
   return (
@@ -33,19 +52,24 @@ export default function HistoryPage() {
 
   const year = selectedYear === ALL_TIME ? undefined : selectedYear
 
-  const { data: stats, isLoading: statsLoading } = useHistoryStats()
+  const { data: stats, isLoading: statsLoading } = useHistoryStats(year)
   const { data: yearly, isLoading: yearlyLoading } = useHistoryYearly()
+  const { data: monthly, isLoading: monthlyLoading } = useHistoryMonthly(year)
   const { data: heatmap, isLoading: heatmapLoading } = useHistoryHeatmap(year)
   const { data: patterns, isLoading: patternsLoading } = useHistoryPatterns()
   const { data: topArtists, isLoading: artistsLoading } = useHistoryTopArtists(year, 25)
   const { data: topTracks, isLoading: tracksLoading } = useHistoryTopTracks(year, 25)
 
   const years = yearly ? yearly.map((y) => y.year).sort((a, b) => b - a) : []
+  const fallbackStats = year && yearly
+    ? yearly.find((y) => y.year === year)
+    : undefined
+  const displayStats = stats ?? (fallbackStats ? statsFromYear(fallbackStats) : undefined)
   const heatmapYear = selectedYear === ALL_TIME
     ? new Date().getFullYear()
     : selectedYear
 
-  const noData = !statsLoading && stats && stats.total_plays === 0
+  const noData = !statsLoading && displayStats && displayStats.total_plays === 0
 
   return (
     <div className="space-y-6 pb-8">
@@ -93,22 +117,36 @@ export default function HistoryPage() {
       ) : (
         <>
           {/* Stat cards */}
-          {statsLoading || !stats ? (
+          {statsLoading && !displayStats ? (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {Array.from({ length: 4 }).map((_, i) => (
                 <Skeleton key={i} className="h-20 rounded-xl" />
               ))}
             </div>
+          ) : !displayStats ? (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="h-20 rounded-xl border border-[#1f1f1f] bg-[#111111] p-4">
+                  <p className="text-[#666] text-xs font-medium uppercase tracking-wider">No data</p>
+                </div>
+              ))}
+            </div>
           ) : (
-            <StatCards stats={stats} />
+            <StatCards stats={displayStats} year={year} />
           )}
 
-          {/* Year-by-year chart (all-time only) */}
-          {selectedYear === ALL_TIME && (
+          {/* Timeline chart */}
+          {selectedYear === ALL_TIME ? (
             yearlyLoading || !yearly ? (
               <Skeleton className="h-48 rounded-xl" />
             ) : (
               <YearlyChart data={yearly} metric="hours" />
+            )
+          ) : (
+            monthlyLoading || !monthly || !year ? (
+              <Skeleton className="h-48 rounded-xl" />
+            ) : (
+              <MonthlyChart data={monthly} metric="hours" year={year} />
             )
           )}
 
