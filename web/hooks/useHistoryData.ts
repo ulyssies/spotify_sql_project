@@ -3,6 +3,7 @@
 import useSWR from 'swr'
 import { api } from '@/lib/api'
 import { isAuthenticated } from '@/lib/auth'
+import type { TimeRange } from '@/lib/types'
 
 const SWR_OPTS = { revalidateOnFocus: false, dedupingInterval: 60_000 }
 
@@ -75,6 +76,15 @@ export function useHistoryArtistYearly(artistNames: string[], limit = 8) {
   return useSWR(
     isAuthenticated() && artistNames.length ? ['history/artist-yearly', namesKey, limit] : null,
     () => api.getHistoryArtistYearly(artistNames, limit),
+    SWR_OPTS,
+  )
+}
+
+export function useHistoryArtistTimeline(artistNames: string[], range: TimeRange, limit = 8) {
+  const namesKey = artistNames.join('|')
+  return useSWR(
+    isAuthenticated() && artistNames.length ? ['history/artist-timeline', namesKey, range, limit] : null,
+    () => api.getHistoryArtistTimeline(artistNames, range, limit),
     SWR_OPTS,
   )
 }

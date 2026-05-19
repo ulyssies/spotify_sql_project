@@ -1,5 +1,5 @@
 import re
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import spotipy
@@ -7,6 +7,7 @@ import spotipy
 from app.database import supabase
 
 HISTORY_FETCH_PAGE_SIZE = 1000
+TIMELINE_RANGES = {"short_term", "medium_term", "long_term"}
 
 
 def _rpc(fn: str, params: dict):
@@ -159,11 +160,12 @@ def get_heatmap(user_id: str, year: Optional[int] = None) -> list:
 
 def _parse_played_at(value) -> Optional[datetime]:
     if isinstance(value, datetime):
-        return value
+        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
     if not value:
         return None
     try:
-        return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
     except ValueError:
         return None
 
@@ -474,3 +476,154 @@ def get_artist_yearly(user_id: str, artist_names: Optional[list[str]] = None, li
         ],
         key=lambda row: (row["year"], row["artist_name"]),
     )
+
+
+def _artist_timeline_bucket_specs(time_range: str, rows: list[dict]) -> tuple[list[str], Optional[datetime], Optional[timedelta]]:
+    now = datetime.now(timezone.utc)
+
+    if time_range == "short_term":
+        return [f"Week {index}" for index in range(1, 5)], now - timedelta(days=28), timedelta(days=7)
+
+    if time_range == "medium_term":
+        return [f"Month {index}" for index in range(1, 7)], now - timedelta(days=180), timedelta(days=30)
+
+    years = sorted({
+        parsed.year
+        for row in rows
+        if (parsed := _parse_played_at(row.get("played_at")))
+    })
+    return [str(year) for year in years], None, None
+
+
+def get_artist_timeline(
+    user_id: str,
+    time_range: str,
+    artist_names: Optional[list[str]] = None,
+    limit: int = 8,
+) -> list:
+    if time_range not in TIMELINE_RANGES:
+        raise ValueError(f"Invalid time_range '{time_range}' — must be one of {TIMELINE_RANGES}")
+
+    selected_names: list[str] = []
+    seen_names: set[str] = set()
+    for name in artist_names or []:
+        clean_name = name.strip()
+        key = clean_name.lower()
+        if clean_name and key not in seen_names:
+            selected_names.append(clean_name)
+            seen_names.add(key)
+
+    selected_names = selected_names[:limit]
+    selected_keys = {name.lower() for name in selected_names}
+    display_names = {name.lower(): name for name in selected_names}
+
+    now = datetime.now(timezone.utc)
+    start = None
+    if time_range == "short_term":
+        start = now - timedelta(days=28)
+    elif time_range == "medium_term":
+        start = now - timedelta(days=180)
+
+    rows: list[dict] = []
+    offset = 0
+    while True:
+        query = (
+            supabase.table("streaming_history")
+            .select("played_at, ms_played, track_name, artist_name")
+            .eq("user_id", user_id)
+            .order("played_at")
+        )
+        if selected_names:
+            query = query.in_("artist_name", selected_names)
+        if start:
+            query = query.gte("played_at", start.isoformat())
+
+        result = query.range(offset, offset + HISTORY_FETCH_PAGE_SIZE - 1).execute()
+        batch = result.data or []
+        rows.extend(batch)
+
+        if len(batch) < HISTORY_FETCH_PAGE_SIZE:
+            break
+        offset += HISTORY_FETCH_PAGE_SIZE
+
+    bucket_labels, range_start, step = _artist_timeline_bucket_specs(time_range, rows)
+    if not bucket_labels:
+        return []
+
+    totals: dict[str, int] = {}
+    for row in rows:
+        artist_name = row.get("artist_name")
+        if not artist_name or not row.get("track_name"):
+            continue
+        artist_key = artist_name.lower()
+        if selected_keys and artist_key not in selected_keys:
+            continue
+        display_names.setdefault(artist_key, artist_name)
+        totals[artist_key] = totals.get(artist_key, 0) + (row.get("ms_played") or 0)
+
+    if selected_names:
+        artist_keys = [name.lower() for name in selected_names]
+    else:
+        artist_keys = [
+            artist_key
+            for artist_key, _total_ms in sorted(totals.items(), key=lambda item: item[1], reverse=True)[:limit]
+        ]
+
+    bucket_map: dict[tuple[str, int], dict] = {}
+    year_to_index = {int(label): index for index, label in enumerate(bucket_labels) if label.isdigit()}
+
+    for row in rows:
+        artist_name = row.get("artist_name")
+        if not artist_name or not row.get("track_name"):
+            continue
+
+        artist_key = artist_name.lower()
+        if artist_key not in artist_keys:
+            continue
+
+        parsed = _parse_played_at(row.get("played_at"))
+        if not parsed:
+            continue
+
+        if time_range == "long_term":
+            bucket_index = year_to_index.get(parsed.year)
+        else:
+            if not range_start or not step or parsed < range_start:
+                continue
+            elapsed = parsed - range_start
+            bucket_index = int(elapsed.total_seconds() // step.total_seconds())
+
+        if bucket_index is None or bucket_index < 0 or bucket_index >= len(bucket_labels):
+            continue
+
+        key = (artist_key, bucket_index)
+        if key not in bucket_map:
+            bucket_map[key] = {
+                "artist_name": display_names.get(artist_key, artist_name),
+                "bucket_index": bucket_index,
+                "bucket_label": bucket_labels[bucket_index],
+                "plays": 0,
+                "total_ms": 0,
+            }
+
+        bucket_map[key]["plays"] += 1
+        bucket_map[key]["total_ms"] += row.get("ms_played") or 0
+
+    output: list[dict] = []
+    for artist_key in artist_keys:
+        display_name = display_names.get(artist_key, artist_key)
+        for bucket_index, bucket_label in enumerate(bucket_labels):
+            output.append(
+                bucket_map.get(
+                    (artist_key, bucket_index),
+                    {
+                        "artist_name": display_name,
+                        "bucket_index": bucket_index,
+                        "bucket_label": bucket_label,
+                        "plays": 0,
+                        "total_ms": 0,
+                    },
+                )
+            )
+
+    return output

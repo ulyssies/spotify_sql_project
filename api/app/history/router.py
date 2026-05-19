@@ -79,3 +79,18 @@ async def get_artist_yearly(
     user: dict = Depends(get_current_user),
 ):
     return service.get_artist_yearly(user["id"], artist_names=artist_names, limit=limit)
+
+
+@router.get("/artist-timeline")
+async def get_artist_timeline(
+    time_range: str = Query("short_term"),
+    artist_names: Optional[list[str]] = Query(None),
+    limit: int = Query(8, ge=1, le=20),
+    user: dict = Depends(get_current_user),
+):
+    return service.get_artist_timeline(
+        user["id"],
+        time_range=time_range,
+        artist_names=artist_names,
+        limit=limit,
+    )

@@ -77,7 +77,7 @@ export default function ArtistsPage() {
       {artists && (
         <>
           <ArtistGrid artists={artists} />
-          <ArtistInsightsDashboard artists={artists} rangeLabel={rangeLabel} />
+          <ArtistInsightsDashboard artists={artists} range={range} rangeLabel={rangeLabel} />
         </>
       )}
     </div>

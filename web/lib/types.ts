@@ -52,14 +52,21 @@ export interface ImportStatus {
   last_import: string
 }
 
+export interface GenreTag {
+  genre: string
+  percentage?: number
+}
+
 export interface Genre {
   genre: string
   percentage: number
   snapshot_at: string
-  other_genres?: string[]
+  other_genres?: Array<string | GenreTag>
+  subgenres?: GenreTag[]
 }
 
 export interface Recommendation {
+  spotify_track_id?: string | null
   track_name: string
   artist_name: string
   album_name: string | null
@@ -67,6 +74,13 @@ export interface Recommendation {
   spotify_url: string | null
   preview_url: string | null
   popularity: number | null
+  source?: string | null
+  source_artist?: string | null
+  reason?: string | null
+  match_score?: number | null
+  listening_ms?: number | null
+  matched_genres?: string[]
+  matched_subgenres?: string[]
 }
 
 export interface SyncResult {
@@ -176,6 +190,14 @@ export interface TopArtist {
 export interface ArtistYearStat {
   artist_name: string
   year: number
+  plays: number
+  total_ms: number
+}
+
+export interface ArtistTimelineBucket {
+  artist_name: string
+  bucket_index: number
+  bucket_label: string
   plays: number
   total_ms: number
 }

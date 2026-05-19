@@ -1,11 +1,14 @@
 'use client'
 
 import { useMemo, type ReactNode } from 'react'
-import { useHistoryArtistYearly, useHistoryTopArtists } from '@/hooks/useHistoryData'
-import type { Artist, ArtistYearStat, TopArtist } from '@/lib/types'
+import Image from 'next/image'
+import { ChevronRight, Clock3, Play, Share2 } from 'lucide-react'
+import { useHistoryArtistTimeline, useHistoryTopArtists } from '@/hooks/useHistoryData'
+import type { Artist, ArtistTimelineBucket, TimeRange, TopArtist } from '@/lib/types'
 
 interface ArtistInsightsDashboardProps {
   artists: Artist[]
+  range: TimeRange
   rangeLabel: string
 }
 
@@ -51,6 +54,11 @@ function formatWeight(value: number, mode: WeightMode): string {
   return `${formatNumber(value)} pts`
 }
 
+function formatPercent(value: number): string {
+  if (!Number.isFinite(value)) return '0%'
+  return `${Math.round(value)}%`
+}
+
 function getWeightMode(artists: Artist[]): WeightMode {
   if (artists.some((artist) => (artist.total_minutes ?? 0) > 0)) return 'minutes'
   if (artists.some((artist) => (artist.total_plays ?? 0) > 0)) return 'plays'
@@ -63,48 +71,170 @@ function getArtistWeight(artist: Artist, mode: WeightMode, totalArtists: number)
   return Math.max(1, totalArtists - artist.rank + 1)
 }
 
-function InsightCard({
-  title,
-  label,
-  children,
+function Artwork({
+  src,
+  alt,
+  shape = 'circle',
   className = '',
 }: {
+  src?: string | null
+  alt: string
+  shape?: 'square' | 'circle'
+  className?: string
+}) {
+  const rounded = shape === 'circle' ? 'rounded-full' : 'rounded-2xl'
+
+  return (
+    <div className={`relative overflow-hidden bg-white/[0.06] ${rounded} ${className}`}>
+      {src ? (
+        <Image
+          src={src}
+          alt={alt}
+          fill
+          sizes="(max-width: 768px) 45vw, 320px"
+          className={`object-cover ${rounded}`}
+        />
+      ) : (
+        <div className={`flex h-full w-full items-center justify-center bg-white/[0.06] text-5xl text-white/20 ${rounded}`}>
+          ♪
+        </div>
+      )}
+    </div>
+  )
+}
+
+function StatFeatureCard({
+  eyebrow,
+  title,
+  imageSrc,
+  imageAlt,
+  badge,
+  className = '',
+}: {
+  eyebrow: string
   title: string
-  label?: string
-  children: ReactNode
+  imageSrc?: string | null
+  imageAlt: string
+  badge?: string
   className?: string
 }) {
   return (
-    <section className={`rounded-2xl border border-white/[0.08] bg-[#101010] p-4 shadow-[0_18px_60px_rgba(0,0,0,0.22)] ${className}`}>
-      <div className="mb-4 flex items-start justify-between gap-4">
-        <h2 className="font-syne text-lg font-bold leading-none text-white">{title}</h2>
-        {label && (
-          <span className="rounded-full border border-white/[0.08] px-2 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-[#777]">
-            {label}
+    <section className={`relative flex min-h-[260px] flex-col overflow-hidden rounded-[24px] bg-[#1f1f1f] p-5 shadow-[0_18px_70px_rgba(0,0,0,0.28)] ${className}`}>
+      <div className="flex items-start justify-between gap-4">
+        <p className="text-sm font-bold text-[#969696]">{eyebrow}</p>
+        <ChevronRight className="h-5 w-5 shrink-0 text-[#a4a4a4]" />
+      </div>
+
+      <h3 className="mt-1 line-clamp-2 font-syne text-3xl font-bold leading-[0.95] text-white">
+        {title}
+      </h3>
+
+      <div className="mt-auto flex items-end justify-between gap-4 pt-7">
+        <Artwork
+          src={imageSrc}
+          alt={imageAlt}
+          className="h-32 w-32"
+        />
+        {badge && (
+          <span className="rounded-full bg-[#10391f] px-3 py-1.5 text-sm font-bold text-[#39d66d]">
+            {badge}
           </span>
         )}
       </div>
-      {children}
     </section>
   )
 }
 
-function MetricCard({
-  label,
-  value,
-  note,
+function TextStoryCard({
+  eyebrow,
+  title,
+  body,
+  accent,
+  children,
   className = '',
 }: {
-  label: string
-  value: string
-  note?: string
+  eyebrow: string
+  title: string
+  body: string
+  accent: string
+  children?: ReactNode
   className?: string
 }) {
   return (
-    <InsightCard title={label} className={className}>
-      <p className="font-syne text-3xl font-bold leading-none text-[#1DB954]">{value}</p>
-      {note && <p className="mt-2 text-sm font-semibold leading-snug text-[#8a8a8a]">{note}</p>}
-    </InsightCard>
+    <section
+      className={`relative overflow-hidden rounded-[26px] border border-white/[0.08] bg-[#171717] p-6 shadow-[0_24px_90px_rgba(0,0,0,0.26)] ${className}`}
+      style={{
+        background: `radial-gradient(circle at 78% 10%, ${accent}24 0, transparent 32%), radial-gradient(circle at 16% 100%, ${accent}16 0, transparent 34%), #171717`,
+      }}
+    >
+      <div className="relative z-10">
+        <p className="font-mono text-xs uppercase tracking-[0.18em] text-[#858585]">{eyebrow}</p>
+        <h3 className="mt-4 font-syne text-3xl font-bold leading-tight text-white md:text-4xl">
+          {title}
+        </h3>
+        <p className="mt-3 text-base font-semibold leading-relaxed text-[#9a9a9a] md:text-lg">
+          {body}
+        </p>
+        {children && <div className="mt-6">{children}</div>}
+      </div>
+    </section>
+  )
+}
+
+function ArtistStoryCard({
+  artist,
+  title,
+  body,
+  accent,
+  footer,
+  className = '',
+}: {
+  artist?: Artist
+  title: string
+  body: string
+  accent: string
+  footer?: ReactNode
+  className?: string
+}) {
+  return (
+    <section
+      className={`overflow-hidden rounded-[26px] bg-[#1f1f1f] p-5 shadow-[0_24px_90px_rgba(0,0,0,0.34)] ${className}`}
+      style={{
+        boxShadow: `0 24px 90px rgba(0,0,0,0.34), 0 0 80px ${accent}14`,
+      }}
+    >
+      <Artwork
+        src={artist?.artist_image_url}
+        alt={artist?.artist_name ?? 'Top artist'}
+        className="mx-auto h-56 w-56 md:h-64 md:w-64"
+      />
+      <h3 className="mt-6 font-syne text-3xl font-bold leading-tight text-white md:text-4xl">
+        {title}
+      </h3>
+      <p className="mt-3 text-base font-semibold leading-relaxed text-[#9a9a9a] md:text-lg">
+        {body}
+      </p>
+      {footer && <div className="mt-6">{footer}</div>}
+    </section>
+  )
+}
+
+function ArtistPortraitStrip({ artists }: { artists: Artist[] }) {
+  return (
+    <div className="flex flex-wrap items-center gap-3">
+      {artists.slice(0, 7).map((artist, index) => (
+        <div key={artist.id} className="group relative">
+          <Artwork
+            src={artist.artist_image_url}
+            alt={artist.artist_name}
+            className="h-16 w-16 border border-white/[0.10]"
+          />
+          <span className="absolute -left-1 -top-1 rounded-full bg-black/70 px-1.5 py-0.5 font-mono text-[10px] font-bold text-white">
+            {index + 1}
+          </span>
+        </div>
+      ))}
+    </div>
   )
 }
 
@@ -176,25 +306,6 @@ function buildGenreLanes(artists: Artist[], mode: WeightMode): WeightedItem[] {
     .sort((a, b) => b.value - a.value)
 }
 
-function buildAudienceBuckets(artists: Artist[]): WeightedItem[] {
-  const buckets = [
-    { label: 'Niche', value: 0, min: 0, max: 250_000 },
-    { label: 'Breakout', value: 0, min: 250_000, max: 2_000_000 },
-    { label: 'Established', value: 0, min: 2_000_000, max: 10_000_000 },
-    { label: 'Global', value: 0, min: 10_000_000, max: Number.POSITIVE_INFINITY },
-  ]
-
-  artists.forEach((artist) => {
-    if (artist.followers == null) return
-    const bucket = buckets.find((item) => artist.followers! >= item.min && artist.followers! < item.max)
-    if (bucket) bucket.value += 1
-  })
-
-  return buckets
-    .filter((bucket) => bucket.value > 0)
-    .map((bucket) => ({ label: bucket.label, value: bucket.value, valueLabel: `${bucket.value} artists` }))
-}
-
 function buildAllTimeOverlap(artists: Artist[], allTimeArtists?: TopArtist[]): WeightedItem[] {
   if (!allTimeArtists?.length) return []
 
@@ -211,184 +322,376 @@ function buildAllTimeOverlap(artists: Artist[], allTimeArtists?: TopArtist[]): W
     .sort((a, b) => b.value - a.value)
 }
 
-function ArtistYearlyChart({
+function rgbaFromHex(hex: string, alpha: number): string {
+  const clean = hex.replace('#', '')
+  const value = Number.parseInt(clean.length === 3 ? clean.split('').map((char) => char + char).join('') : clean, 16)
+  const r = (value >> 16) & 255
+  const g = (value >> 8) & 255
+  const b = value & 255
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`
+}
+
+function ArtistSegmentedTimeline({
   data,
-  artistNames,
+  artists,
+  rangeLabel,
+  className = '',
 }: {
-  data?: ArtistYearStat[]
-  artistNames: string[]
+  data?: ArtistTimelineBucket[]
+  artists: Artist[]
+  rangeLabel: string
+  className?: string
 }) {
-  if (!data?.length) {
+  const activeBucketEntries = Array.from(
+    new Map(
+      (data ?? [])
+        .filter((row) => row.total_ms > 0 || row.plays > 0)
+        .map((row) => [row.bucket_index, row.bucket_label]),
+    ).entries(),
+  )
+    .sort((a, b) => a[0] - b[0])
+  const bucketIndexes = activeBucketEntries.map((entry) => entry[0])
+  const bucketLabels = activeBucketEntries.map((entry) => entry[1])
+
+  if (!bucketLabels.length) {
     return (
-      <p className="text-sm font-semibold leading-relaxed text-[#777]">
-        Import listening history to see how these artists rise and fade across years.
-      </p>
+      <section className={`rounded-[28px] border border-white/[0.08] bg-[#101010] p-6 ${className}`}>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h2 className="font-syne text-2xl font-bold text-white">Top artists over time</h2>
+            <p className="mt-1 text-sm font-semibold text-[#8a8a8a]">
+              How your top artists were distributed across this selected period.
+            </p>
+          </div>
+          <span className="rounded-full border border-white/[0.08] px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-[#777]">
+            {rangeLabel}
+          </span>
+        </div>
+        <p className="mt-8 text-sm font-semibold leading-relaxed text-[#777]">
+          Import listening history to see range-specific artist movement here.
+        </p>
+      </section>
     )
   }
 
-  const years = Array.from(new Set(data.map((row) => row.year))).sort((a, b) => a - b)
-  const orderedNames = artistNames.filter((name) => data.some((row) => row.artist_name.toLowerCase() === name.toLowerCase()))
-  const max = Math.max(...data.map((row) => row.total_ms), 1)
-  const byArtistYear = new Map<string, ArtistYearStat>()
-  data.forEach((row) => byArtistYear.set(`${row.artist_name.toLowerCase()}-${row.year}`, row))
+  const visibleArtists = artists.slice(0, 6)
+  const byArtistBucket = new Map<string, ArtistTimelineBucket>()
+  ;(data ?? []).forEach((row) => {
+    byArtistBucket.set(`${row.artist_name.toLowerCase()}-${row.bucket_index}`, row)
+  })
+  const maxMs = Math.max(...(data ?? []).map((row) => row.total_ms), 1)
+  const hasListening = (data ?? []).some((row) => row.total_ms > 0 || row.plays > 0)
+  const artistRows = visibleArtists.map((artist, artistIndex) => {
+    const buckets = bucketIndexes.map((bucketIndex, index) => (
+      byArtistBucket.get(`${artist.artist_name.toLowerCase()}-${bucketIndex}`) ?? {
+        artist_name: artist.artist_name,
+        bucket_index: bucketIndex,
+        bucket_label: bucketLabels[index],
+        plays: 0,
+        total_ms: 0,
+      }
+    ))
+    const totalMs = buckets.reduce((sum, bucket) => sum + bucket.total_ms, 0)
+    const totalPlays = buckets.reduce((sum, bucket) => sum + bucket.plays, 0)
+
+    return {
+      artist,
+      artistIndex,
+      buckets,
+      color: ARTIST_COLORS[artistIndex % ARTIST_COLORS.length],
+      totalMs,
+      totalPlays,
+    }
+  })
+  const maxArtistMs = Math.max(...artistRows.map((row) => row.totalMs), 1)
 
   return (
-    <div className="space-y-3">
-      {orderedNames.slice(0, 6).map((artistName, artistIndex) => (
-        <div key={artistName} className="grid grid-cols-[92px_1fr] items-end gap-3">
-          <div>
-            <p className="truncate text-xs font-bold text-white">{artistName}</p>
-            <p className="font-mono text-[10px] text-[#666]">#{artistIndex + 1}</p>
+    <section className={`overflow-visible rounded-[28px] border border-white/[0.08] bg-[#101010] p-5 shadow-[0_18px_70px_rgba(0,0,0,0.25)] md:p-6 ${className}`}>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h2 className="font-syne text-2xl font-bold text-white">Top artists over time</h2>
+          <p className="mt-1 text-sm font-semibold text-[#8a8a8a]">
+            How your top artists were distributed across this selected period.
+          </p>
+        </div>
+        <span className="rounded-full border border-white/[0.08] px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-[#777]">
+          {rangeLabel}
+        </span>
+      </div>
+
+      {!hasListening && (
+        <p className="mt-6 rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4 text-sm font-semibold text-[#777]">
+          No imported listening history matched these artists for this selected range yet.
+        </p>
+      )}
+
+      <div className="mt-8 overflow-visible pb-2">
+        <div className="overflow-visible">
+          <div className="grid grid-cols-[120px_minmax(0,1fr)_78px] gap-4 md:grid-cols-[150px_minmax(0,1fr)_96px] md:gap-6">
+            <div />
+            <div className="flex flex-wrap items-center gap-2 pb-4">
+              {bucketLabels.map((label) => (
+                <span
+                  key={label}
+                  className="rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-[#777]"
+                >
+                  {label}
+                </span>
+              ))}
+            </div>
+            <div className="pb-4 text-right font-mono text-[10px] uppercase tracking-[0.16em] text-[#666]">total</div>
           </div>
-          <div
-            className="grid h-12 items-end gap-1"
-            style={{ gridTemplateColumns: `repeat(${years.length}, minmax(12px, 1fr))` }}
-          >
-            {years.map((year) => {
-              const row = byArtistYear.get(`${artistName.toLowerCase()}-${year}`)
-              const height = row ? Math.max(8, (row.total_ms / max) * 48) : 2
+
+          <div className="space-y-6">
+            {artistRows.map((row) => {
+              const barWidth = row.totalMs > 0 ? Math.max(22, (row.totalMs / maxArtistMs) * 100) : 100
+              const activeBuckets = row.buckets.filter((bucket) => bucket.total_ms > 0 || bucket.plays > 0)
               return (
-                <div key={year} className="flex h-12 items-end rounded-full bg-white/[0.03]">
-                  <div
-                    className="w-full rounded-full"
-                    style={{
-                      height,
-                      background: row ? ARTIST_COLORS[artistIndex % ARTIST_COLORS.length] : 'rgba(255,255,255,0.05)',
-                    }}
-                    title={row ? `${artistName}: ${formatMinutes(row.total_ms / 60000)} in ${year}` : `${artistName}: no plays in ${year}`}
-                  />
+                <div key={row.artist.id} className="grid grid-cols-[120px_minmax(0,1fr)_78px] items-center gap-4 md:grid-cols-[150px_minmax(0,1fr)_96px] md:gap-6">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-bold text-white md:text-base">{row.artist.artist_name}</p>
+                    <p className="mt-1 font-mono text-xs text-[#777]">#{row.artistIndex + 1}</p>
+                  </div>
+
+                  <div className="relative h-12 rounded-xl bg-white/[0.045]">
+                    <div
+                      className="flex h-full rounded-xl"
+                      style={{ width: `${barWidth}%` }}
+                    >
+                      {activeBuckets.length ? activeBuckets.map((bucket, bucketIndex) => {
+                        const intensity = maxMs > 0 ? bucket.total_ms / maxMs : 0
+                        const alpha = 0.42 + Math.min(intensity, 1) * 0.48
+                        const isFirst = bucketIndex === 0
+                        const isLast = bucketIndex === activeBuckets.length - 1
+                        const segmentWeight = bucket.total_ms > 0 ? bucket.total_ms : 1
+                        const showTooltipBelow = row.artistIndex === 0
+                        const alignTooltipRight = bucketIndex >= activeBuckets.length - 2
+
+                        return (
+                          <div
+                            key={`${row.artist.artist_name}-${bucket.bucket_label}`}
+                            className={`group relative h-full min-w-[10px] border-r border-[#101010] ${isFirst ? 'rounded-l-xl' : ''} ${isLast ? 'rounded-r-xl border-r-0' : ''}`}
+                            style={{
+                              flex: `${segmentWeight} 1 0`,
+                              background: rgbaFromHex(row.color, alpha),
+                              boxShadow: bucket.total_ms > 0 ? `0 0 28px ${rgbaFromHex(row.color, intensity * 0.18)}` : undefined,
+                            }}
+                          >
+                            <div
+                              className={`pointer-events-none absolute z-50 hidden w-[230px] rounded-2xl border border-white/[0.10] bg-[#121212]/95 p-4 shadow-[0_18px_55px_rgba(0,0,0,0.45)] backdrop-blur group-hover:block ${
+                                showTooltipBelow ? 'top-full mt-3' : 'top-0 -translate-y-[calc(100%+12px)]'
+                              } ${alignTooltipRight ? 'right-0' : 'left-1/2 -translate-x-1/2'}`}
+                            >
+                              <div className="flex items-center justify-between gap-3">
+                                <p className="truncate font-syne text-base font-bold" style={{ color: row.color }}>
+                                  {row.artist.artist_name}
+                                </p>
+                                <span className="rounded-full bg-white/[0.08] px-2 py-1 text-xs font-bold text-white">
+                                  {bucket.bucket_label}
+                                </span>
+                              </div>
+                              <div className="mt-3 space-y-2 text-sm font-semibold text-[#b8b8b8]">
+                                <div className="flex items-center justify-between gap-3">
+                                  <span className="flex items-center gap-2">
+                                    <Clock3 className="h-4 w-4 text-[#777]" />
+                                    Listening time
+                                  </span>
+                                  <span className="text-white">{formatMinutes(bucket.total_ms / 60000)}</span>
+                                </div>
+                                <div className="flex items-center justify-between gap-3">
+                                  <span className="flex items-center gap-2">
+                                    <Play className="h-4 w-4 text-[#777]" />
+                                    Play count
+                                  </span>
+                                  <span className="text-white">{formatNumber(bucket.plays)}</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      }) : (
+                        <div className="h-full w-full rounded-xl bg-white/[0.035]" />
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-mono text-sm font-semibold text-white">{formatMinutes(row.totalMs / 60000)}</p>
+                    <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.14em] text-[#666]">
+                      {formatNumber(row.totalPlays)} plays
+                    </p>
+                  </div>
                 </div>
               )
             })}
           </div>
         </div>
-      ))}
-      <div className="ml-[104px] grid gap-1" style={{ gridTemplateColumns: `repeat(${years.length}, minmax(12px, 1fr))` }}>
-        {years.map((year) => (
-          <span key={year} className="text-center font-mono text-[9px] text-[#666]">
-            {String(year).slice(2)}
-          </span>
-        ))}
       </div>
-    </div>
+    </section>
   )
 }
 
-export function ArtistInsightsDashboard({ artists, rangeLabel }: ArtistInsightsDashboardProps) {
+export function ArtistInsightsDashboard({ artists, range, rangeLabel }: ArtistInsightsDashboardProps) {
   const mode = getWeightMode(artists)
-  const yearlyNames = useMemo(() => artists.slice(0, 8).map((artist) => artist.artist_name), [artists])
+  const timelineNames = useMemo(() => artists.slice(0, 8).map((artist) => artist.artist_name), [artists])
   const { data: allTimeArtists } = useHistoryTopArtists(undefined, 50)
-  const { data: artistYearly } = useHistoryArtistYearly(yearlyNames, 8)
+  const { data: artistTimeline } = useHistoryArtistTimeline(timelineNames, range, 8)
 
   if (!artists.length) return null
 
   const currentWeights = buildCurrentWeights(artists, mode)
   const genreLanes = buildGenreLanes(artists, mode)
-  const audienceBuckets = buildAudienceBuckets(artists)
   const allTimeOverlap = buildAllTimeOverlap(artists, allTimeArtists)
   const totalWeight = currentWeights.reduce((sum, item) => sum + item.value, 0)
-  const topFiveShare = totalWeight > 0
-    ? (currentWeights.slice(0, 5).reduce((sum, item) => sum + item.value, 0) / totalWeight) * 100
-    : 0
-  const coverage = artists.filter((artist) => (artist.total_minutes ?? 0) > 0 || (artist.total_plays ?? 0) > 0).length
   const topArtist = currentWeights[0]
+  const topArtistRecord = topArtist
+    ? artists.find((artist) => artist.artist_name.toLowerCase() === topArtist.label.toLowerCase())
+    : artists[0]
+  const topArtistShare = topArtist && totalWeight > 0 ? (topArtist.value / totalWeight) * 100 : 0
   const topLane = genreLanes[0]
+  const genreTotal = genreLanes.reduce((sum, item) => sum + item.value, 0)
+  const topLaneShare = topLane && genreTotal > 0 ? (topLane.value / genreTotal) * 100 : 0
+  const accent = topLane?.color ?? '#1DB954'
   const allTimeRanks = new Map((allTimeArtists ?? []).map((artist, index) => [artist.artist_name.toLowerCase(), index + 1]))
   const currentInAllTimeTop50 = artists.filter((artist) => allTimeRanks.has(artist.artist_name.toLowerCase())).length
-  const freshestArtist = artists.find((artist) => !allTimeRanks.has(artist.artist_name.toLowerCase())) ?? artists[artists.length - 1]
+  const memoryNames = new Set(allTimeOverlap.slice(0, 7).map((artist) => artist.label.toLowerCase()))
+  const memoryArtists = artists.filter((artist) => memoryNames.has(artist.artist_name.toLowerCase()))
+  const totalListeningLabel = mode === 'minutes'
+    ? formatMinutes(totalWeight)
+    : mode === 'plays'
+      ? `${formatNumber(totalWeight)} plays`
+      : `${artists.length} artists`
+  const leaderBody = topArtist
+    ? `${topArtist.label} is carrying ${formatPercent(topArtistShare)} of this artist row for ${rangeLabel}.`
+    : `These artists are shaping your ${rangeLabel} listening.`
 
   return (
     <div className="mt-10">
-      <div className="mb-5">
-        <h2 className="font-syne text-2xl font-bold text-white">Artist insights</h2>
-        <p className="mt-1 text-sm font-semibold text-[#8a8a8a]">
-          A dashboard for who is carrying your listening, where they fit, and how they show up over time.
-        </p>
+      <div className="mb-6 flex items-end justify-between gap-4">
+        <div>
+          <h2 className="font-syne text-2xl font-bold text-white">Artist listening stats</h2>
+          <p className="mt-1 text-sm font-semibold text-[#8a8a8a]">
+            Your top artists from {rangeLabel}, turned into a few actual listening moments.
+          </p>
+        </div>
+        <Share2 className="hidden h-5 w-5 text-[#8a8a8a] sm:block" />
       </div>
 
-      <div className="grid auto-rows-[minmax(132px,auto)] grid-cols-1 gap-4 md:grid-cols-6 xl:grid-cols-12">
-        <MetricCard
-          label="Listening weight"
-          value={mode === 'minutes' ? formatMinutes(totalWeight) : mode === 'plays' ? `${formatNumber(totalWeight)} plays` : `${artists.length} artists`}
-          note={mode === 'minutes' || mode === 'plays' ? `Matched across your top artists from ${rangeLabel}.` : 'Import history will turn this from rank weight into real listening time.'}
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-6 xl:grid-cols-12">
+        <StatFeatureCard
+          eyebrow="Top artist"
+          title={topArtist?.label ?? topArtistRecord?.artist_name ?? 'Unknown artist'}
+          imageSrc={topArtistRecord?.artist_image_url}
+          imageAlt={topArtistRecord?.artist_name ?? topArtist?.label ?? 'Top artist'}
+          badge={topArtistShare > 0 ? formatPercent(topArtistShare) : undefined}
           className="md:col-span-3 xl:col-span-3"
         />
 
-        <MetricCard
-          label="Artist leader"
-          value={topArtist?.label ?? 'Unknown'}
-          note={topArtist ? `${formatWeight(topArtist.value, mode)} leads this range.` : undefined}
+        <TextStoryCard
+          eyebrow="Main lane"
+          title={topLane?.label ?? 'Genres syncing'}
+          body={
+            topLane
+              ? `${topLane.label} is the strongest shared sound in this artist set, holding ${formatPercent(topLaneShare)} of the tagged lane mix.`
+              : 'Once artist tags are attached, this becomes the clearest read on the sound carrying the page.'
+          }
+          accent={accent}
           className="md:col-span-3 xl:col-span-3"
+        >
+          {genreLanes.length ? <BarList items={genreLanes} mode={mode} maxItems={4} /> : null}
+        </TextStoryCard>
+
+        <TextStoryCard
+          eyebrow="Total pull"
+          title={totalListeningLabel}
+          body={
+            mode === 'minutes'
+              ? `That is the listening time matched across this top-artist row for ${rangeLabel}.`
+              : mode === 'plays'
+                ? `That is how many matched plays these artists collected in ${rangeLabel}.`
+                : `These are the artists shaping this view for ${rangeLabel}.`
+          }
+          accent="#1DB954"
+          className="md:col-span-6 xl:col-span-6"
+        >
+          <BarList items={currentWeights} mode={mode} maxItems={4} />
+        </TextStoryCard>
+
+        <ArtistStoryCard
+          artist={topArtistRecord}
+          title={topArtist ? `${topArtist.label} carried the range` : 'Your top artist sets the tone'}
+          body={leaderBody}
+          accent={accent}
+          className="md:col-span-6 xl:col-span-7"
+          footer={topArtistRecord && (
+            <div className="flex items-center gap-4">
+              <Artwork
+                src={topArtistRecord.artist_image_url}
+                alt={topArtistRecord.artist_name}
+                className="h-14 w-14 shrink-0 border border-white/[0.10]"
+              />
+              <div className="min-w-0">
+                <p className="truncate text-lg font-bold text-white">{topArtistRecord.artist_name}</p>
+                <p className="truncate text-base font-semibold text-[#8a8a8a]">
+                  {topArtistRecord.genres?.slice(0, 3).join(', ') || formatWeight(topArtist?.value ?? 0, mode)}
+                </p>
+              </div>
+            </div>
+          )}
         />
 
-        <MetricCard
-          label="Main lane"
-          value={topLane?.label ?? 'Unknown'}
-          note={topLane ? `${formatWeight(topLane.value, mode)} across top artist tags.` : 'Artist genre tags are still syncing.'}
-          className="md:col-span-3 xl:col-span-3"
+        <TextStoryCard
+          eyebrow="Artist constellation"
+          title={`${artists.length} artists in orbit`}
+          body="The row reads like a cast list for this period, with the strongest names sitting closest to the front."
+          accent="#60a5fa"
+          className="md:col-span-6 xl:col-span-5"
+        >
+          <ArtistPortraitStrip artists={artists} />
+        </TextStoryCard>
+
+        <ArtistSegmentedTimeline
+          data={artistTimeline}
+          artists={artists}
+          rangeLabel={rangeLabel}
+          className="md:col-span-6 xl:col-span-12"
         />
 
-        <MetricCard
-          label="Top 5 pull"
-          value={`${topFiveShare.toFixed(0)}%`}
-          note="How concentrated this page is around the first five artists."
-          className="md:col-span-3 xl:col-span-3"
-        />
-
-        <InsightCard title="Top artists over time" label="history" className="md:col-span-6 xl:col-span-7">
-          <ArtistYearlyChart data={artistYearly} artistNames={yearlyNames} />
-        </InsightCard>
-
-        <InsightCard title="Current listening weight" label={mode} className="md:col-span-6 xl:col-span-5">
-          <BarList items={currentWeights} mode={mode} maxItems={8} />
-        </InsightCard>
-
-        <InsightCard title="Genre lanes" label={mode} className="md:col-span-3 xl:col-span-4">
+        <TextStoryCard
+          eyebrow="Genre lanes"
+          title={topLane ? `${formatPercent(topLaneShare)} ${topLane.label}` : 'No dominant lane yet'}
+          body={
+            topLane
+              ? `Your artist row leans hardest into ${topLane.label}, with adjacent genres showing how wide the taste pocket is.`
+              : 'Genre tags will turn this into a visual read on the sounds binding your top artists.'
+          }
+          accent={accent}
+          className="md:col-span-3 xl:col-span-6"
+        >
           {genreLanes.length ? (
             <BarList items={genreLanes} mode={mode} maxItems={7} />
           ) : (
             <p className="text-sm font-semibold text-[#777]">No genre tags are attached to these artists yet.</p>
           )}
-        </InsightCard>
+        </TextStoryCard>
 
-        <InsightCard title="All-time overlap" label="memory" className="md:col-span-3 xl:col-span-4">
+        <TextStoryCard
+          eyebrow="All-time memory"
+          title={`${currentInAllTimeTop50}/${artists.length} still in rotation`}
+          body="This shows how much of the current row overlaps with your imported all-time artist memory."
+          accent="#818cf8"
+          className="md:col-span-3 xl:col-span-6"
+        >
+          <ArtistPortraitStrip artists={memoryArtists.length ? memoryArtists : artists.slice(0, 5)} />
           {allTimeOverlap.length ? (
-            <BarList items={allTimeOverlap} mode="minutes" maxItems={6} />
+            <div className="mt-5">
+              <BarList items={allTimeOverlap} mode="minutes" maxItems={5} />
+            </div>
           ) : (
-            <p className="text-sm font-semibold leading-relaxed text-[#777]">
+            <p className="mt-5 text-sm font-semibold leading-relaxed text-[#777]">
               Import history to compare today&apos;s top artists against your all-time leaders.
             </p>
           )}
-          <div className="mt-4 rounded-xl border border-white/[0.06] bg-white/[0.03] p-3">
-            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#777]">Top 50 memory</p>
-            <p className="mt-1 text-sm font-semibold text-[#b5b5b5]">
-              {currentInAllTimeTop50}/{artists.length} current artists appear in your all-time top 50.
-            </p>
-          </div>
-        </InsightCard>
-
-        <InsightCard title="Audience shape" label="spotify" className="md:col-span-3 xl:col-span-4">
-          {audienceBuckets.length ? (
-            <BarList items={audienceBuckets} mode="rank" maxItems={4} />
-          ) : (
-            <p className="text-sm font-semibold text-[#777]">Follower counts are not available for this row yet.</p>
-          )}
-          <div className="mt-4 rounded-xl border border-white/[0.06] bg-white/[0.03] p-3">
-            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#777]">Fresh signal</p>
-            <p className="mt-1 truncate text-sm font-semibold text-[#b5b5b5]">
-              {freshestArtist ? `${freshestArtist.artist_name} is the least anchored to your all-time list.` : 'No fresh artist signal yet.'}
-            </p>
-          </div>
-        </InsightCard>
-
-        <InsightCard title="Data coverage" label="quality" className="md:col-span-3 xl:col-span-4">
-          <p className="font-syne text-3xl font-bold leading-none text-[#1DB954]">
-            {coverage}/{artists.length}
-          </p>
-          <p className="mt-2 text-sm font-semibold leading-relaxed text-[#8a8a8a]">
-            Artists with imported play or minute matches. More coverage makes these cards shift from Spotify rank to true listening behavior.
-          </p>
-        </InsightCard>
+        </TextStoryCard>
       </div>
     </div>
   )
