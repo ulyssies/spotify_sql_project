@@ -20,19 +20,57 @@ SpotYourVibe is a full-stack music intelligence app that maps genres, subgenres,
 
 SpotYourVibe is in active local development. There is no public hosted demo yet, so the screenshots below show the current graph experience without requiring a Spotify login, Supabase project, or local setup.
 
-## Preview
+## Dashboard Pages
+
+SpotYourVibe is organized around a bottom navigation flow: **History**, **Music Map**, **Top Tracks**, **Top Artists**, **Genres**, **Recommendations**, **Import Data**, and **Profile**. The screenshots below use development data so the core product experience is visible without requiring a live Spotify login.
+
+### Listening History
+
+The History page is the all-up listening archive. It summarizes lifetime or year-specific listening time, total plays, unique artists, skip metadata when available, yearly/monthly listening charts, calendar heatmaps, hour-of-day patterns, day-of-week patterns, and ranked artist/track tables.
+
+![SpotYourVibe Listening History dashboard](docs/screenshots/pages/listening-history.png)
 
 ### Music Map
 
-The Music Map organizes listening data as a layered graph: parent genres in the center, subgenres around them, and artists on the outer edge. Node size and glow reflect listening weight, while color regions show genre families.
+The Music Map is the main second-brain experience. It draws a layered constellation where the user profile sits at the center, parent genres orbit the center, subgenres cluster around their parent genre, and artists form the outer listening field. Node size, glow, color, and proximity communicate listening weight and taste relationships.
 
-![SpotYourVibe Music Map overview](docs/screenshots/music-map-overview.png)
+![SpotYourVibe Music Map overview](docs/screenshots/pages/music-map.png)
 
-### Node Details
+Clicking a genre, subgenre, artist, or the central profile node pins that selection and opens a detail panel. The panel shows listening history, rank, top songs, subgenre mix, artist leaderboards, and Spotify artwork where available.
 
-Clicking a genre, subgenre, or artist pins the selection and opens a detail panel with listening history, artist rankings, subgenre mix, and top songs with Spotify artwork.
+![SpotYourVibe Music Map detail panel](docs/screenshots/pages/music-map-detail.png)
 
-![SpotYourVibe Music Map detail panel](docs/screenshots/music-map-detail.png)
+### Top Tracks
+
+The Top Tracks page presents the selected time range as a horizontal ranked row of track cards with album art. Below it, a Spotify-inspired listening stats dashboard highlights the top artist, top song, total pull, strongest track weights, genre mix, and other listening moments from the current range.
+
+![SpotYourVibe Top Tracks dashboard](docs/screenshots/pages/top-tracks.png)
+
+### Top Artists
+
+The Top Artists page mirrors the track experience for artists: a horizontal ranked artist row, artist images, genre tags, and a listening stats dashboard. It includes visual cards for the leading artist, main genre lane, total listening pull, current listening weight, and a segmented “top artists over time” chart that changes with the selected global range.
+
+![SpotYourVibe Top Artists dashboard](docs/screenshots/pages/top-artists.png)
+
+### Genres
+
+The Genres page turns raw genre tags into cleaner taste lanes. It highlights the dominant genre, the next strongest signal, the total share captured by the top genres, and an expandable genre constellation that can reveal subgenres behind each major lane.
+
+![SpotYourVibe Genres dashboard](docs/screenshots/pages/genres.png)
+
+### Recommendations
+
+The Recommendations page is an experimental discovery surface. It uses top artists, genre/subgenre matches, Spotify popularity, and imported listening history to suggest popular tracks that fit the user’s taste graph while keeping recommendations fresh by filtering out songs with more than one hour of total listening time.
+
+### Import Data
+
+The Import Data page walks users through requesting Spotify Extended Streaming History and uploading the JSON export. Imported history unlocks real play counts, listening minutes, duplicate-normalized song totals, calendar analytics, and stronger graph weighting.
+
+![SpotYourVibe Import Data workflow](docs/screenshots/pages/import-data.png)
+
+### Profile
+
+The Profile entry keeps account actions out of the main dashboard flow. It shows the user avatar in the bottom navigation and opens a compact menu for sign out.
 
 ## What It Does
 
@@ -54,10 +92,10 @@ Core product goals:
 | **Pinned Node Details** | Click nodes to inspect listening time, yearly history, leaderboards, subgenre mix, and top songs. |
 | **Artist Top Songs** | Aggregates all-time listening history for selected artists and merges duplicate Spotify versions of the same song. |
 | **Album Artwork** | Enriches top-song rows with stored Spotify artwork or live Spotify lookups. |
-| **Top Tracks & Artists** | Horizontal ranked rows plus insight dashboards for listening weight, genre lanes, concentration, all-time overlap, and artist momentum. |
+| **Top Tracks & Artists** | Horizontal ranked rows plus Spotify-inspired insight dashboards for listening weight, genre lanes, top items, and artist momentum over the selected period. |
 | **Listening History Import** | Import Spotify Extended Streaming History JSON exports, including optional skip/shuffle/reason metadata, for deeper all-time stats. |
 | **Genre Enrichment** | Combines Spotify artist genres with Last.fm fallback tags, then cleans noisy tags. |
-| **Recommendations** | Experimental recommendation surface. Spotify deprecated the native recommendation and related-artist endpoints for many apps, so the next version should use the local taste graph and history data instead. |
+| **Recommendations** | Experimental discovery surface built from favorite artists, genre/subgenre affinity, Spotify search/popularity, and low-listening-time filtering. |
 | **History Analytics** | Lifetime and year-scoped stats, monthly/yearly trends, heatmaps, hour/day patterns, and top artist/track leaderboards. |
 
 ## Architecture
