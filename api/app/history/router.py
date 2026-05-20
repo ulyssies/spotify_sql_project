@@ -81,6 +81,21 @@ async def get_artist_yearly(
     return service.get_artist_yearly(user["id"], artist_names=artist_names, limit=limit)
 
 
+@router.get("/node-yearly")
+async def get_node_yearly(
+    node_type: str = Query(..., pattern="^(root|parent|subgenre|artist)$"),
+    label: str = Query(..., min_length=1),
+    family: Optional[str] = Query(None),
+    user: dict = Depends(get_current_user),
+):
+    return service.get_node_yearly(
+        user["id"],
+        node_type=node_type,
+        label=label,
+        family=family,
+    )
+
+
 @router.get("/artist-timeline")
 async def get_artist_timeline(
     time_range: str = Query("short_term"),

@@ -6,6 +6,7 @@ import { isAuthenticated } from '@/lib/auth'
 import type { TimeRange } from '@/lib/types'
 
 const SWR_OPTS = { revalidateOnFocus: false, dedupingInterval: 60_000 }
+type HistoryNodeType = 'root' | 'parent' | 'subgenre' | 'artist'
 
 export function useHistoryStats(year?: number) {
   return useSWR(
@@ -67,6 +68,16 @@ export function useHistoryArtistTopTracks(artistName?: string, limit = 25) {
   return useSWR(
     isAuthenticated() && artistName ? ['history/artist-top-tracks', artistName, limit] : null,
     () => api.getHistoryArtistTopTracks(artistName!, limit),
+    SWR_OPTS,
+  )
+}
+
+export function useHistoryNodeYearly(nodeType?: HistoryNodeType, label?: string, family?: string) {
+  return useSWR(
+    isAuthenticated() && nodeType && label
+      ? ['history/node-yearly', nodeType, label, family ?? null]
+      : null,
+    () => api.getHistoryNodeYearly(nodeType!, label!, family),
     SWR_OPTS,
   )
 }

@@ -1,13 +1,23 @@
 import re
 from datetime import datetime, timedelta, timezone
+from time import monotonic
 from typing import Optional
 
 import spotipy
 
 from app.database import supabase
+from app.genres.service import _classify_family, _normalize_genre
 
 HISTORY_FETCH_PAGE_SIZE = 1000
 TIMELINE_RANGES = {"short_term", "medium_term", "long_term"}
+NODE_YEARLY_CACHE_TTL_SECONDS = 300
+
+_node_yearly_cache: dict[tuple[str, str, str, str], tuple[float, list]] = {}
+_history_genre_context_cache: dict[str, tuple[float, list[dict], dict[str, list[str]]]] = {}
+
+
+def _cache_fresh(saved_at: float) -> bool:
+    return monotonic() - saved_at < NODE_YEARLY_CACHE_TTL_SECONDS
 
 
 def _rpc(fn: str, params: dict):
@@ -106,6 +116,175 @@ def get_stats(user_id: str, year: Optional[int] = None) -> dict:
 
 def get_yearly(user_id: str) -> list:
     return _rpc("history_yearly", {"p_user_id": user_id}) or []
+
+
+def _genre_match_key(genre: str) -> str:
+    normalized = _normalize_genre(genre or "")
+    normalized = normalized.replace("&", "and")
+    return re.sub(r"[^a-z0-9]+", "", normalized)
+
+
+def _append_genres(existing: list[str], incoming: list[str]) -> None:
+    seen = {_genre_match_key(genre) for genre in existing}
+    for genre in incoming:
+        key = _genre_match_key(genre)
+        if key and key not in seen:
+            existing.append(genre)
+            seen.add(key)
+
+
+def _load_artist_genre_lookup(user_id: str, artist_names: set[str]) -> dict[str, list[str]]:
+    lookup: dict[str, list[str]] = {}
+    clean_names = sorted({name.strip().lower() for name in artist_names if name and name.strip()})
+
+    for i in range(0, len(clean_names), 500):
+        batch = clean_names[i:i + 500]
+        result = (
+            supabase.table("artist_genres")
+            .select("artist_name, genres")
+            .in_("artist_name", batch)
+            .execute()
+        )
+        for row in result.data or []:
+            artist_key = (row.get("artist_name") or "").strip().lower()
+            genres = row.get("genres") or []
+            if artist_key and genres:
+                _append_genres(lookup.setdefault(artist_key, []), genres)
+
+    # The map is built from the user's synced Spotify rows, so use them as a
+    # fallback when imported history contains an artist missing from artist_genres.
+    for table_name in ("top_artists", "top_tracks"):
+        result = (
+            supabase.table(table_name)
+            .select("artist_name, genres")
+            .eq("user_id", user_id)
+            .execute()
+        )
+        for row in result.data or []:
+            artist_key = (row.get("artist_name") or "").strip().lower()
+            genres = row.get("genres") or []
+            if artist_key and genres and (not clean_names or artist_key in artist_names):
+                _append_genres(lookup.setdefault(artist_key, []), genres)
+
+    return lookup
+
+
+def _history_rows_for_artist(user_id: str, artist_name: str) -> list[dict]:
+    rows: list[dict] = []
+    offset = 0
+
+    while True:
+        result = (
+            supabase.table("streaming_history")
+            .select("played_at, ms_played, track_name, artist_name")
+            .eq("user_id", user_id)
+            .ilike("artist_name", artist_name)
+            .order("played_at")
+            .range(offset, offset + HISTORY_FETCH_PAGE_SIZE - 1)
+            .execute()
+        )
+        batch = result.data or []
+        rows.extend(batch)
+
+        if len(batch) < HISTORY_FETCH_PAGE_SIZE:
+            break
+        offset += HISTORY_FETCH_PAGE_SIZE
+
+    return rows
+
+
+def _history_genre_context(user_id: str) -> tuple[list[dict], dict[str, list[str]]]:
+    cached = _history_genre_context_cache.get(user_id)
+    if cached and _cache_fresh(cached[0]):
+        return cached[1], cached[2]
+
+    rows = _streaming_history_rows(
+        user_id,
+        "played_at, ms_played, track_name, artist_name",
+    )
+    artist_names = {
+        (row.get("artist_name") or "").strip().lower()
+        for row in rows
+        if row.get("artist_name")
+    }
+    artist_genres = _load_artist_genre_lookup(user_id, artist_names)
+    _history_genre_context_cache[user_id] = (monotonic(), rows, artist_genres)
+    return rows, artist_genres
+
+
+def _history_node_matcher(
+    node_type: str,
+    label: str,
+    family: Optional[str],
+    artist_genres: dict[str, list[str]],
+):
+    label_key = label.strip().lower()
+    subgenre_key = _genre_match_key(label)
+    target_family = family or _classify_family(label)
+
+    def matches(row: dict) -> bool:
+        artist_key = (row.get("artist_name") or "").strip().lower()
+        if not artist_key:
+            return False
+        if node_type == "artist":
+            return artist_key == label_key
+
+        genres = artist_genres.get(artist_key, [])
+        if node_type == "parent":
+            return any(_classify_family(genre) == target_family for genre in genres)
+        if node_type == "subgenre":
+            return any(_genre_match_key(genre) == subgenre_key for genre in genres)
+        return node_type == "root"
+
+    return matches
+
+
+def get_node_yearly(
+    user_id: str,
+    node_type: str,
+    label: str,
+    family: Optional[str] = None,
+) -> list:
+    if node_type == "root":
+        return get_yearly(user_id)
+
+    cache_key = (
+        user_id,
+        node_type,
+        label.strip().lower(),
+        (family or "").strip().lower(),
+    )
+    cached = _node_yearly_cache.get(cache_key)
+    if cached and _cache_fresh(cached[0]):
+        return cached[1]
+
+    if node_type == "artist":
+        rows = _history_rows_for_artist(user_id, label)
+        artist_genres: dict[str, list[str]] = {}
+    else:
+        rows, artist_genres = _history_genre_context(user_id)
+
+    matches = _history_node_matcher(node_type, label, family, artist_genres)
+    yearly: dict[int, dict] = {}
+
+    for row in rows:
+        if not row.get("track_name") or not matches(row):
+            continue
+
+        parsed = _parse_played_at(row.get("played_at"))
+        if not parsed:
+            continue
+
+        bucket = yearly.setdefault(
+            parsed.year,
+            {"year": parsed.year, "plays": 0, "total_ms": 0},
+        )
+        bucket["plays"] += 1
+        bucket["total_ms"] += row.get("ms_played") or 0
+
+    result = [yearly[year] for year in sorted(yearly)]
+    _node_yearly_cache[cache_key] = (monotonic(), result)
+    return result
 
 
 def get_monthly(user_id: str, year: int) -> list:
@@ -343,17 +522,27 @@ def _attach_album_art_from_saved_tracks(user_id: str, tracks: list) -> None:
 
 
 def get_artist_top_tracks(user_id: str, artist_name: str, limit: int = 25, sp: Optional[spotipy.Spotify] = None) -> list:
-    result = (
-        supabase.table("streaming_history")
-        .select("track_name, artist_name, spotify_track_uri, ms_played")
-        .eq("user_id", user_id)
-        .ilike("artist_name", artist_name)
-        .limit(50000)
-        .execute()
-    )
+    rows: list[dict] = []
+    offset = 0
+
+    while True:
+        result = (
+            supabase.table("streaming_history")
+            .select("track_name, artist_name, spotify_track_uri, ms_played")
+            .eq("user_id", user_id)
+            .ilike("artist_name", artist_name)
+            .range(offset, offset + HISTORY_FETCH_PAGE_SIZE - 1)
+            .execute()
+        )
+        batch = result.data or []
+        rows.extend(batch)
+
+        if len(batch) < HISTORY_FETCH_PAGE_SIZE:
+            break
+        offset += HISTORY_FETCH_PAGE_SIZE
 
     tracks: dict[str, dict] = {}
-    for row in result.data or []:
+    for row in rows:
         track_name = row.get("track_name") or "Unknown Track"
         artist = row.get("artist_name") or artist_name
         uri = row.get("spotify_track_uri") or f"{artist}:{track_name}"

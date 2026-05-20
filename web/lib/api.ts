@@ -1,5 +1,5 @@
 import { clearToken, getToken } from '@/lib/auth'
-import type { Artist, ArtistMapData, ArtistTimelineBucket, ArtistYearStat, Genre, GenreMapData, HistoryPatterns, HistoryStats, HeatmapDay, ImportResult, ImportStatus, MonthStat, Recommendation, StreamingHistoryItem, SyncResult, TimeRange, TopArtist, TopTrack, Track, User, YearStat } from '@/lib/types'
+import type { Artist, ArtistMapData, ArtistTimelineBucket, ArtistYearStat, Genre, GenreMapData, HistoryPatterns, HistoryStats, HeatmapDay, ImportResult, ImportStatus, MonthStat, NodeYearStat, Recommendation, StreamingHistoryItem, SyncResult, TimeRange, TopArtist, TopTrack, Track, User, YearStat } from '@/lib/types'
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api/v1'
 
@@ -94,6 +94,12 @@ export const api = {
     const params = new URLSearchParams({ limit: String(limit) })
     artistNames.forEach((name) => params.append('artist_names', name))
     return request<ArtistYearStat[]>(`/history/artist-yearly?${params.toString()}`)
+  },
+
+  getHistoryNodeYearly: (nodeType: string, label: string, family?: string) => {
+    const params = new URLSearchParams({ node_type: nodeType, label })
+    if (family) params.set('family', family)
+    return request<NodeYearStat[]>(`/history/node-yearly?${params.toString()}`)
   },
 
   getHistoryArtistTimeline: (artistNames: string[], range: TimeRange, limit = 8) => {

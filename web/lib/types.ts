@@ -194,6 +194,12 @@ export interface ArtistYearStat {
   total_ms: number
 }
 
+export interface NodeYearStat {
+  year: number
+  plays: number
+  total_ms: number
+}
+
 export interface ArtistTimelineBucket {
   artist_name: string
   bucket_index: number
