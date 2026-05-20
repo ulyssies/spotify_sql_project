@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useMemo } from 'react'
 import * as d3 from 'd3'
-import { useHistoryArtistTopTracks } from '@/hooks/useHistoryData'
+import { useHistoryArtistTopTracks, useHistoryNodeYearly } from '@/hooks/useHistoryData'
 import { useUser } from '@/hooks/useUser'
 import type { GenreMapData, TopTrack, Track, YearStat } from '@/lib/types'
 
@@ -103,6 +103,10 @@ function formatListeningTime(ms = 0): string {
     return `${hours >= 10 ? Math.round(hours) : hours.toFixed(1)} hr`
   }
   return `${minutes} min`
+}
+
+function formatExactMinutes(ms = 0): string {
+  return `${Math.round(ms / 60000).toLocaleString()} min`
 }
 
 function getDominantGenreId(genres: string[] | undefined, weightByGenreId: Map<string, number>): string {
@@ -207,6 +211,15 @@ export function GenreMap({ data, tracks = [], historyTopTracks = [], yearly = []
   const { user } = useUser()
   const selectedArtistName = selectedNode?.nodeType === 'artist' ? selectedNode.label : undefined
   const { data: selectedArtistTopTracks = [] } = useHistoryArtistTopTracks(selectedArtistName, 25)
+  const selectedHistoryNodeType =
+    selectedNode?.nodeType === 'parent' || selectedNode?.nodeType === 'subgenre' || selectedNode?.nodeType === 'artist'
+      ? selectedNode.nodeType
+      : undefined
+  const { data: selectedNodeYearly, isLoading: isNodeYearlyLoading } = useHistoryNodeYearly(
+    selectedHistoryNodeType,
+    selectedHistoryNodeType ? selectedNode?.label : undefined,
+    selectedHistoryNodeType ? selectedNode?.family : undefined,
+  )
 
   useEffect(() => {
     if (!user?.avatar_url) {
@@ -526,7 +539,7 @@ export function GenreMap({ data, tracks = [], historyTopTracks = [], yearly = []
         || b.plays - a.plays
         || a.rank - b.rank,
       )
-      .slice(0, 8)
+      .slice(0, 10)
 
     const subgenreMix = (() => {
       if (selectedNode.nodeType === 'root') {
@@ -567,14 +580,30 @@ export function GenreMap({ data, tracks = [], historyTopTracks = [], yearly = []
     const selectedMs = selectedNode.nodeType === 'root'
       ? totalParentMs
       : selectedNode.weight ?? topArtists.reduce((sum, node) => sum + (node.weight ?? 0), 0)
-    const share = Math.max(0.03, Math.min(0.85, selectedMs / totalParentMs))
-    const yearBars = yearly
-      .slice()
-      .sort((a, b) => a.year - b.year)
-      .map((year) => ({
-        year: year.year,
-        ms: selectedNode.nodeType === 'root' ? year.total_ms : Math.round(year.total_ms * share),
-      }))
+    const fallbackYearShare = selectedNode.nodeType === 'root'
+      ? 1
+      : Math.max(0.01, Math.min(0.75, selectedMs / totalParentMs))
+    const yearAxis = new Set<number>()
+    yearly.forEach((year) => yearAxis.add(year.year))
+    ;(selectedNodeYearly ?? []).forEach((year) => yearAxis.add(year.year))
+    const sortedYears = Array.from(yearAxis).sort((a, b) => a - b)
+    const globalYearByYear = new Map(yearly.map((year) => [year.year, year]))
+    const nodeYearByYear = new Map((selectedNodeYearly ?? []).map((year) => [year.year, year]))
+    const yearBarsLoading = selectedNode.nodeType !== 'root' && isNodeYearlyLoading && !selectedNodeYearly
+    const yearBars = sortedYears.map((year) => {
+      const row = selectedNode.nodeType === 'root'
+        ? globalYearByYear.get(year)
+        : nodeYearByYear.get(year)
+      const fallbackRow = globalYearByYear.get(year)
+      const isEstimated = selectedNode.nodeType !== 'root' && yearBarsLoading && !row
+      return {
+        year,
+        ms: row?.total_ms ?? (isEstimated ? Math.round((fallbackRow?.total_ms ?? 0) * fallbackYearShare) : 0),
+        plays: row?.plays ?? (isEstimated ? Math.round((fallbackRow?.plays ?? 0) * fallbackYearShare) : 0),
+        estimated: isEstimated,
+      }
+    })
+    const hasYearlyListening = yearBars.some((bar) => bar.ms > 0)
 
     const subgenreCount = selectedNode.nodeType === 'root'
       ? subgenreSimNodes.length
@@ -595,8 +624,10 @@ export function GenreMap({ data, tracks = [], historyTopTracks = [], yearly = []
       subgenreMix,
       subgenreMixIsEstimated: selectedNode.nodeType === 'artist',
       yearBars,
+      yearBarsLoading,
+      hasYearlyListening,
     }
-  }, [selectedNode, graphData, tracks, historyTopTracks, selectedArtistTopTracks, yearly])
+  }, [selectedNode, graphData, tracks, historyTopTracks, selectedArtistTopTracks, selectedNodeYearly, isNodeYearlyLoading, yearly])
 
   // ── Canvas rendering effect — reruns on data change or resize ───────────────
   useEffect(() => {
@@ -647,6 +678,32 @@ export function GenreMap({ data, tracks = [], historyTopTracks = [], yearly = []
       y: cy,
       fx: cx,
       fy: cy,
+    }
+
+    function getFullMapTransform(reserveDetailPanel: boolean) {
+      const panelReserve = reserveDetailPanel && width >= 900
+        ? Math.min(410, Math.max(360, width * 0.24))
+        : 0
+      const padding = Math.max(36, Math.min(width, height) * 0.06)
+      const availableWidth = Math.max(320, width - panelReserve)
+      const availableHeight = Math.max(320, height)
+      const mapRadius = artistRing.outer + Math.max(42, rootRadius * 0.45)
+      const scale = Math.max(
+        0.3,
+        Math.min(
+          1,
+          Math.min(
+            (availableWidth - padding * 2) / (mapRadius * 2),
+            (availableHeight - padding * 2) / (mapRadius * 2),
+          ),
+        ),
+      )
+      const viewportCenterX = availableWidth / 2
+      const viewportCenterY = availableHeight / 2
+
+      return d3.zoomIdentity
+        .translate(viewportCenterX - cx * scale, viewportCenterY - cy * scale)
+        .scale(scale)
     }
 
     const nodes: SimNode[] = [...parentSimNodes, ...subgenreSimNodes, ...artistSimNodes]
@@ -1014,6 +1071,7 @@ export function GenreMap({ data, tracks = [], historyTopTracks = [], yearly = []
       }, 140)
     }
 
+    const canvasSelection = d3.select<HTMLCanvasElement, unknown>(canvas)
     const zoom = d3.zoom<HTMLCanvasElement, unknown>()
       .scaleExtent([0.3, 5])
       .on('start', beginInteraction)
@@ -1022,7 +1080,17 @@ export function GenreMap({ data, tracks = [], historyTopTracks = [], yearly = []
         scheduleDraw()
       })
       .on('end', settleInteraction)
-    d3.select(canvas).call(zoom)
+    canvasSelection.call(zoom)
+
+    function zoomToFullMap() {
+      const target = getFullMapTransform(true)
+      canvasSelection
+        .interrupt('fit-map')
+        .transition('fit-map')
+        .duration(1100)
+        .ease(d3.easeCubicOut)
+        .call(zoom.transform, target)
+    }
 
     // ── Simulation ────────────────────────────────────────────────────────────
     let tickCount = 0
@@ -1175,7 +1243,8 @@ export function GenreMap({ data, tracks = [], historyTopTracks = [], yearly = []
       hoveredNodeRef.current = node
       relevantIdsRef.current = node ? buildRelevantIds(node) : null
       setSelectedNode(node)
-      if (!node) tooltip.style.display = 'none'
+      tooltip.style.display = 'none'
+      if (node) zoomToFullMap()
       draw()
     }
 
@@ -1185,6 +1254,7 @@ export function GenreMap({ data, tracks = [], historyTopTracks = [], yearly = []
 
     return () => {
       simulation.stop()
+      canvasSelection.interrupt('fit-map')
       if (zoomFrame !== null) window.cancelAnimationFrame(zoomFrame)
       if (interactionTimeoutRef.current) {
         window.clearTimeout(interactionTimeoutRef.current)
@@ -1314,52 +1384,125 @@ export function GenreMap({ data, tracks = [], historyTopTracks = [], yearly = []
             <div className="mb-2 flex items-center justify-between">
               <h3 className="text-sm font-semibold text-white">Listening By Year</h3>
               <span className="text-[10px] uppercase tracking-wider text-[#666]">
-                {selectedNode.nodeType === 'root' ? 'actual' : 'weighted'}
+                {detailData.yearBarsLoading ? 'updating' : 'actual'}
               </span>
             </div>
-            {detailData.yearBars.length ? (
+            {detailData.yearBars.length && detailData.hasYearlyListening ? (
               <div className="flex h-28 items-end gap-1 rounded-lg bg-[#151515] p-3">
-                {detailData.yearBars.map((bar) => (
-                  <div key={bar.year} className="flex min-w-0 flex-1 flex-col items-center gap-1">
+                {detailData.yearBars.map((bar) => {
+                  const barHeight = bar.ms > 0 ? Math.max(8, (bar.ms / maxYearMs) * 100) : 0
+                  const title = bar.estimated
+                    ? `${selectedNode.label} · ${bar.year}: loading exact node history`
+                    : `${selectedNode.label} · ${bar.year}: ${formatExactMinutes(bar.ms)} · ${bar.plays.toLocaleString()} plays`
+                  return (
+                  <div
+                    key={bar.year}
+                    className="group relative flex min-w-0 flex-1 flex-col items-center gap-1"
+                    title={title}
+                  >
+                    <div className="pointer-events-none absolute bottom-[calc(100%+8px)] left-1/2 z-40 hidden w-max max-w-[190px] -translate-x-1/2 rounded-lg border border-[#2a2a2a] bg-[#111] px-3 py-2 text-left shadow-xl group-hover:block">
+                      <p className="truncate text-xs font-semibold" style={{ color: detailData.color }}>{selectedNode.label}</p>
+                      <p className="mt-0.5 text-[11px] text-[#aaa]">{bar.year}</p>
+                      <p className="mt-1 text-[11px] text-white">
+                        {bar.estimated ? 'Loading exact minutes...' : `${formatExactMinutes(bar.ms)} listened`}
+                      </p>
+                      <p className="text-[10px] text-[#777]">
+                        {bar.estimated ? 'Temporary shape while data warms' : `${bar.plays.toLocaleString()} plays`}
+                      </p>
+                    </div>
                     <div className="flex h-20 w-full items-end rounded-sm bg-[#242424]">
                       <div
-                        className="w-full rounded-sm"
+                        className="w-full rounded-sm transition-[height,opacity]"
                         style={{
-                          height: `${Math.max(8, (bar.ms / maxYearMs) * 100)}%`,
+                          height: `${barHeight}%`,
                           backgroundColor: detailData.color,
+                          opacity: bar.estimated ? 0.45 : bar.ms > 0 ? 1 : 0,
                         }}
                       />
                     </div>
                     <span className="text-[9px] text-[#777]">{String(bar.year).slice(2)}</span>
                   </div>
-                ))}
+                )})}
               </div>
+            ) : detailData.yearBarsLoading ? (
+              <p className="rounded-lg bg-[#151515] p-3 text-sm text-[#777]">Loading this node&apos;s listening history...</p>
             ) : (
-              <p className="rounded-lg bg-[#151515] p-3 text-sm text-[#777]">Import streaming history to unlock year-by-year listening.</p>
+              <p className="rounded-lg bg-[#151515] p-3 text-sm text-[#777]">No year-by-year listening found for this node yet.</p>
             )}
           </section>
 
-          <section className="mt-5">
-            <h3 className="mb-2 text-sm font-semibold text-white">Artist Leaderboard</h3>
-            <div className="space-y-2">
-              {detailData.topArtists.length ? detailData.topArtists.map((artist, index) => (
-                <div key={artist.id} className="flex items-center justify-between gap-3 rounded-lg bg-[#151515] px-3 py-2">
+          {selectedNode.nodeType === 'artist' ? (
+            <section className="mt-5">
+              <h3 className="mb-2 text-sm font-semibold text-white">Artist Snapshot</h3>
+              <div className="rounded-lg bg-[#151515] p-3">
+                <div className="flex items-center gap-3">
+                  {detailData.topTracks[0]?.albumArt ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={detailData.topTracks[0].albumArt} alt="" className="h-16 w-16 shrink-0 rounded-lg object-cover" />
+                  ) : (
+                    <div className="h-16 w-16 shrink-0 rounded-lg bg-[#262626]" />
+                  )}
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-white">{index + 1}. {artist.label}</p>
-                    <p className="text-xs text-[#777]">{formatListeningTime(artist.weight)}</p>
-                  </div>
-                  <div className="h-2 w-20 overflow-hidden rounded-full bg-[#262626]">
-                    <div
-                      className="h-full rounded-full"
-                      style={{ width: `${Math.max(8, (artist.signal ?? 0) * 100)}%`, backgroundColor: detailData.color }}
-                    />
+                    <p className="text-[10px] uppercase tracking-[0.18em] text-[#777]">Top song</p>
+                    <p className="mt-1 truncate text-sm font-semibold text-white">{detailData.topTracks[0]?.name ?? 'No top song yet'}</p>
+                    <p className="mt-1 text-xs text-[#777]">
+                      {detailData.topTracks[0]
+                        ? `${detailData.topTracks[0].minutes ? `${detailData.topTracks[0].minutes}m` : `${detailData.topTracks[0].plays} plays`} listened`
+                        : 'Import listening history to unlock songs.'}
+                    </p>
                   </div>
                 </div>
-              )) : (
-                <p className="rounded-lg bg-[#151515] p-3 text-sm text-[#777]">No artist data for this selection yet.</p>
-              )}
-            </div>
-          </section>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <div className="rounded-lg bg-[#1b1b1b] p-3">
+                    <p className="text-lg font-bold" style={{ color: detailData.color }}>
+                      {detailData.artistRank ? `#${detailData.artistRank.toLocaleString()}` : '—'}
+                    </p>
+                    <p className="mt-1 text-[11px] text-[#777]">listening rank</p>
+                  </div>
+                  <div className="rounded-lg bg-[#1b1b1b] p-3">
+                    <p className="text-lg font-bold" style={{ color: detailData.color }}>{detailData.topTracks.length.toLocaleString()}</p>
+                    <p className="mt-1 text-[11px] text-[#777]">top songs shown</p>
+                  </div>
+                </div>
+                {detailData.topTracks.length ? (
+                  <div className="mt-3 grid grid-cols-4 gap-2">
+                    {detailData.topTracks.slice(0, 4).map((track, index) => (
+                      <div key={`${track.id}-snapshot-${index}`} className="overflow-hidden rounded-md bg-[#202020]">
+                        {track.albumArt ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={track.albumArt} alt="" className="aspect-square w-full object-cover" />
+                        ) : (
+                          <div className="aspect-square w-full bg-[#262626]" />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            </section>
+          ) : (
+            <section className="mt-5">
+              <h3 className="mb-2 text-sm font-semibold text-white">Artist Leaderboard</h3>
+              <div className="space-y-2">
+                {detailData.topArtists.length ? detailData.topArtists.map((artist, index) => (
+                  <div key={artist.id} className="flex items-center justify-between gap-3 rounded-lg bg-[#151515] px-3 py-2">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-white">{index + 1}. {artist.label}</p>
+                      <p className="text-xs text-[#777]">{formatListeningTime(artist.weight)}</p>
+                    </div>
+                    <div className="h-2 w-20 overflow-hidden rounded-full bg-[#262626]">
+                      <div
+                        className="h-full rounded-full"
+                        style={{ width: `${Math.max(8, (artist.signal ?? 0) * 100)}%`, backgroundColor: detailData.color }}
+                      />
+                    </div>
+                  </div>
+                )) : (
+                  <p className="rounded-lg bg-[#151515] p-3 text-sm text-[#777]">No artist data for this selection yet.</p>
+                )}
+              </div>
+            </section>
+          )}
 
           <section className="mt-5">
             <h3 className="mb-2 text-sm font-semibold text-white">Top Songs</h3>
