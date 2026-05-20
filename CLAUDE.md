@@ -90,10 +90,11 @@ Important UX direction:
 - `/history/stats` now accepts an optional `year`.
 - Added `/history/monthly?year=...`.
 - Added `/history/artist-yearly?artist_names=...`.
+- Added `/history/node-yearly?node_type=...&label=...` for exact Music Map node-level yearly listening history.
 - History stat cards now update for selected years and fall back to yearly summary data instead of blank cards.
+- The old skip-rate card was replaced by a computed `Daily pace` card because Spotify skip metadata is often absent from imported history.
 - Year mode uses the new month chart; all-time mode keeps the yearly chart.
 - Hour-of-day and day-of-week chart bars now share a consistent baseline.
-- Skip rate shows `No data` when imported history does not contain skipped metadata.
 - Import handling now preserves and backfills `reason_start`, `reason_end`, `skipped`, and `shuffle` metadata.
 - Import flow no longer filters out short plays or skipped rows before upload.
 - Upserts replaced duplicate-ignore behavior so re-imports can enrich existing rows.
@@ -115,7 +116,11 @@ Important UX direction:
 - Parent/subgenre/artist nodes have stronger listening-weight encoding through size, opacity, stroke, and hue.
 - Artist borders are intentionally organic/blob-like instead of a hard circle.
 - Hover and click states highlight local relationships; clicked nodes pin the selection and open a detail drawer.
-- Artist top-song drawer rows use deduplicated all-time history and Spotify artwork enrichment.
+- Clicking a node gently zooms the canvas back out to show the full map while preserving the selected drawer context.
+- Drawer `Listening By Year` charts use exact node-level imported history for parent genres, subgenres, and artists instead of estimated global weighting.
+- Bar hover text shows exact minutes and play count for that node/year when data is loaded.
+- Artist-specific drawers now show an `Artist Snapshot` section with top song, listening rank, count of shown top songs, and artwork thumbnails instead of a one-item artist leaderboard.
+- Artist top-song drawer rows show up to 10 deduplicated tracks using all-time history and Spotify artwork enrichment.
 - Genre/subgenre top-song rows use the same artwork enrichment path.
 
 ### Recommendations Caveat
