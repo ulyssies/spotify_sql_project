@@ -1,22 +1,24 @@
 'use client'
 
 import { Suspense, useEffect } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { setToken } from '@/lib/auth'
 
 function CallbackContent() {
   const router = useRouter()
-  const searchParams = useSearchParams()
 
   useEffect(() => {
-    const token = searchParams.get('token')
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+    const queryParams = new URLSearchParams(window.location.search)
+    const token = hashParams.get('token') ?? queryParams.get('token')
+
     if (token) {
       setToken(token)
       router.replace('/dashboard/tracks')
     } else {
       router.replace('/?error=auth_failed')
     }
-  }, [router, searchParams])
+  }, [router])
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center">

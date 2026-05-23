@@ -1,7 +1,7 @@
 import { clearToken, getToken } from '@/lib/auth'
 import type { Artist, ArtistMapData, ArtistTimelineBucket, ArtistYearStat, Genre, GenreMapData, HistoryPatterns, HistoryStats, HeatmapDay, ImportResult, ImportStatus, MonthStat, NodeYearStat, Recommendation, StreamingHistoryItem, SyncResult, TimeRange, TopArtist, TopTrack, Track, User, YearStat } from '@/lib/types'
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api/v1'
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://127.0.0.1:8000/api/v1'
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = getToken()
@@ -23,7 +23,19 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
   if (!res.ok) {
     const text = await res.text()
-    throw new Error(`API ${res.status}: ${text}`)
+    let detail = text
+    try {
+      const parsed = JSON.parse(text) as { detail?: unknown; message?: unknown }
+      detail = String(parsed.detail ?? parsed.message ?? text)
+    } catch {
+      detail = text
+    }
+
+    if (res.status === 429) {
+      throw new Error('Spotify is rate limiting requests right now. Wait a minute, then try again.')
+    }
+
+    throw new Error(detail || `API request failed with status ${res.status}`)
   }
 
   return res.json() as Promise<T>
@@ -32,6 +44,9 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 export const api = {
   getMe: () =>
     request<User>('/users/me'),
+
+  deleteMe: () =>
+    request<{ message: string }>('/users/me', { method: 'DELETE' }),
 
   syncTracks: (range: TimeRange) =>
     request<SyncResult>(`/tracks/sync?range=${range}`, { method: 'POST' }),

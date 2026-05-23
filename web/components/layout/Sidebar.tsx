@@ -12,6 +12,7 @@ import {
   Network,
   Clock,
   LogOut,
+  Trash2,
 } from 'lucide-react'
 import { clearToken } from '@/lib/auth'
 import { useUser } from '@/hooks/useUser'
@@ -54,6 +55,23 @@ export function Sidebar() {
     clearToken()
     setProfileOpen(false)
     router.push('/')
+  }
+
+  async function handleDeleteData() {
+    const confirmed = window.confirm(
+      'Delete your SpotYourVibe account data, including imported listening history, synced tracks, artists, and stored Spotify refresh token? This cannot be undone.',
+    )
+    if (!confirmed) return
+
+    try {
+      const { api } = await import('@/lib/api')
+      await api.deleteMe()
+      clearToken()
+      setProfileOpen(false)
+      router.push('/')
+    } catch (error) {
+      window.alert((error as Error).message || 'Could not delete your data. Please try again.')
+    }
   }
 
   return (
@@ -146,6 +164,15 @@ export function Sidebar() {
               >
                 <LogOut className="h-4 w-4 shrink-0" />
                 Sign out
+              </button>
+
+              <button
+                type="button"
+                onClick={handleDeleteData}
+                className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-red-300 transition-colors hover:bg-red-400/[0.08] hover:text-red-200"
+              >
+                <Trash2 className="h-4 w-4 shrink-0" />
+                Delete my data
               </button>
             </div>
           )}

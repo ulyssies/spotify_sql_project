@@ -63,7 +63,7 @@ async def callback(code: str):
     user = result.data[0]
     session_token = create_session_token(spotify_id=spotify_id, user_id=user["id"])
 
-    return RedirectResponse(url=f"{settings.frontend_url}/auth/callback?token={session_token}")
+    return RedirectResponse(url=f"{settings.frontend_url}/auth/callback#token={session_token}")
 
 
 @router.post("/logout")
