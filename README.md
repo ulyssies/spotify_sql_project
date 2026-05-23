@@ -203,6 +203,17 @@ In the Spotify Developer Dashboard, the redirect URI must exactly match:
 http://127.0.0.1:8000/api/v1/auth/callback
 ```
 
+For production, add the hosted API callback URL as a second redirect URI and set
+`SPOTIFY_REDIRECT_URI` to that exact HTTPS URL, for example:
+
+```text
+https://api.your-domain.com/api/v1/auth/callback
+```
+
+Set `FRONTEND_URL` to the hosted web origin, for example `https://your-domain.com`.
+The backend redirects the app session token back to the frontend in a URL fragment
+so it is not sent in normal HTTP referrer headers.
+
 Run the API:
 
 ```bash
@@ -307,7 +318,22 @@ Authorization: Bearer <jwt>
 - Do not commit `.env`, `.env.local`, `.cache`, `.claude/`, `.agents/`, `AGENTS.md`, `CODEX.md`, or database files.
 - Supabase service role keys belong only in the backend `.env`.
 - Spotify refresh tokens are stored server-side in Supabase and should never be exposed to the frontend.
+- The frontend should only use `NEXT_PUBLIC_API_URL`; never put Spotify secrets, Supabase service role keys, refresh tokens, or imported history files in `web/.env.local`.
+- User-facing API routes derive `user_id` from the signed app session and apply that user filter to top tracks, artists, history, map, import, genres, and recommendations data.
+- Users can delete their stored app data from the profile menu. The backend deletes the user row, and related rows cascade through the schema.
 - The screenshots in this README are for UI demonstration and may reflect development listening data. Replace them with anonymized/demo data before a public launch if that matters for your release.
+
+## Public Launch Checklist
+
+Before posting a hosted build, verify:
+
+- Spotify Dashboard has the production HTTPS callback URL and it exactly matches `SPOTIFY_REDIRECT_URI`.
+- `FRONTEND_URL` and `NEXT_PUBLIC_API_URL` point at the hosted web and API origins, and CORS allows the same frontend origin.
+- A clean browser can log in, sync top tracks/artists, import history, and open Tracks, Artists, Genres, History, Music Map, Recommendations, Import, and Privacy.
+- Empty states look intentional when a brand-new user has not synced tracks or imported history yet.
+- Music Map remains responsive at laptop, desktop, tablet, and phone widths with a real long-term dataset.
+- Error states cover expired app sessions, failed Spotify/API calls, missing imports, empty recommendations, and Spotify rate limiting.
+- README screenshots or demo assets are current, because Development Mode Spotify apps cannot support arbitrary public logins.
 
 ## Roadmap
 

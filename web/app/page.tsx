@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { isAuthenticated } from '@/lib/auth'
 import { BrandLogo } from '@/components/layout/BrandLogo'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api/v1'
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://127.0.0.1:8000/api/v1'
 
 export default function LandingPage() {
   const router = useRouter()
@@ -61,7 +61,10 @@ export default function LandingPage() {
           </a>
 
           <p className="mt-6 text-zinc-500 text-xs">
-            Read-only access · Your taste graph starts from your Spotify data
+            Read-only access · Your taste graph starts from your Spotify data ·{' '}
+            <a href="/privacy" className="text-zinc-400 underline underline-offset-4 hover:text-white">
+              Privacy
+            </a>
           </p>
         </div>
 
